@@ -6,7 +6,7 @@
 
 - 规范仓库：<https://git.o0kam1.dev/HumanlessCode/opencode-command-window>（即 `origin`）。
 - GitHub 仓库 <https://github.com/duzhaokun123/opencode-command-window> 是它的镜像：代码改动与 pull request 提交到规范仓库，GitHub 的 issue 可用于提问与讨论。
-- npm 包名是 `@o0kam1/opencode-command-window`，发布账号为 `o0kam1`。`repository` 指向规范仓库；`homepage` 与 release 同样以规范仓库为准。
+- npm 包名是 `@o0kam1/opencode-command-window`，发布账号为 `o0kam1`。`repository` 指向 GitHub 镜像，只用于 npm 页面上的仓库链接；`homepage` 指向规范仓库，`bugs` 指向 GitHub issues；tag 与 release 只留在规范仓库。
 - 修改 `README.md` / `README.zh.md` 时保留顶部的镜像声明。
 - 依赖更新由 GitHub 镜像上的 Dependabot 负责，配置在 `.github/dependabot.yml`：`npm` 生态覆盖 `package.json` 与 `pnpm-lock.yaml`，`github-actions` 生态覆盖 workflow 中的 action 版本；每周检查一次，minor 与 patch 合并成一个 PR，major 单独开 PR。Dependabot 只运行在 GitHub 侧，它的 PR 仅作为更新提示，实际改动仍在规范仓库完成并推送。
 

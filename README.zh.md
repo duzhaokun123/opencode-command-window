@@ -166,6 +166,7 @@ opencode plugin remove @o0kam1/opencode-command-window
 
 - 版本由人工从规范仓库的检出发布：修改 `package.json` 的 `version`、提交、打 `vX.Y.Z` tag，然后执行 `npm publish`。`publishConfig` 固定了公共 npm registry，`prepublishOnly` 会先跑 `pnpm check`。
 - tag 与 release 只留在规范仓库 <https://git.o0kam1.dev/HumanlessCode/opencode-command-window>。GitHub 镜像不接收 tag，因此它既不发布也不创建 release。
+- `package.json` 的 `repository` 指向 GitHub 镜像，让 npm 页面的仓库链接落在那里；`homepage` 指向规范仓库，`bugs` 指向 GitHub issues。
 - 用这种方式发布的 npm 包没有 provenance 证明，因为 npm 只会在受支持的云 CI 上生成该证明。
 
 ## 开发

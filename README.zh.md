@@ -28,6 +28,37 @@ OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果插件�
 
 执行 `/reload` 或重启 OpenCode。插件 id 为 `command.window`。
 
+## 配置
+
+回读提示默认开启。要修改，请在 `opencode.json(c)` 中显式声明插件目录并附上 `options`：
+
+```jsonc
+{
+  "plugins": [
+    {
+      "package": "/home/me/.config/opencode/plugins/command-window",
+      "options": {
+        "readBack": true,
+        "readBackText": "完整输出在报告的文件里，请读取该文件而不是重跑命令。"
+      }
+    }
+  ]
+}
+```
+
+| 选项 | 类型 | 含义 |
+| --- | --- | --- |
+| `readBack` | 布尔 | 是否把回读段落注入系统提示词，默认 `true`。 |
+| `readBackText` | 非空字符串 | 替换内置的英文段落。 |
+
+说明：
+
+- 通过配置目录 `plugins/` 自动发现的插件拿到的是空选项。要配置选项，必须在 `plugins` 中显式声明同一个绝对目录；配置条目最后应用，会替换自动发现的那一条。
+- 只有当本次请求能用到 `read` 工具时才注入，且只注入主 Agent 请求。
+- 无效值会回退默认值，并在日志中留下 `[command.window]` 警告。
+- 该段落要求模型用 `read`（`offset`/`limit`，单次最多 2000 行）继续读取保存的输出文件，而不是重跑命令。读取工作区外的文件可能触发目录授权确认。
+- 该段落会给每次主请求增加固定数量的输入 token。
+
 ## 用法
 
 照常调用 `shell`，附加一个窗口参数：
@@ -75,7 +106,7 @@ OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果插件�
 [showing lines 1-2 of 3 (head 2); full output was not saved because the result was not truncated]
 ```
 
-marker 总会报告总行数。如果 OpenCode 保存了完整输出，marker 会带上文件路径，后续可以用 `lines` 从该文件读取另一段，无需重跑命令。如果输出本来就完整地留在上下文里，就不存在文件，marker 会明确说明，而不会编造路径。
+marker 总会报告总行数。如果 OpenCode 保存了完整输出，marker 会带上文件路径，后续无需重跑命令即可读取另一段：用 `read` 工具读取该路径并指定 `offset` 与 `limit`；如果命令本身很便宜，也可以用 `lines` 再次调用 `shell`。如果输出本来就完整地留在上下文里，就不存在文件，marker 会明确说明，而不会编造路径。
 
 marker 备注：
 
@@ -116,7 +147,9 @@ pnpm check   # tsc --noEmit && vitest run
 
 | 路径 | 作用 |
 | --- | --- |
-| `src/index.ts` | 插件接线：schema 与描述变换、`execute.after` hook。 |
+| `src/index.ts` | 插件接线：选项、schema 与描述变换、系统提示词注入、`execute.after` hook。 |
+| `src/options.ts` | 插件选项校验与默认值。 |
+| `src/prompt.ts` | 回读段落与幂等的 system part 注入。 |
 | `src/schema.ts` | 替换后的 `shell` input schema 与追加描述。 |
 | `src/window.ts` | 参数解析与 marker 渲染。 |
 | `src/scan.ts` | 带字节上限的流式文件/文本扫描。 |
@@ -131,4 +164,5 @@ pnpm check   # tsc --noEmit && vitest run
 5. 用 `{"tail": 2}` 执行 `seq 1 5`。marker 必须说明结果未被截断。
 6. 把 `lines` 与 `tail` 组合。结果必须以 `[window error: ...]` 开头，并保留默认预览。
 7. 用 `{"background": true, "tail": 1}` 启动 `sleep 5`。运行中的结果必须保持不变。
-8. 检查 `~/.local/share/opencode/log/opencode.log` 是否有 `[command.window]` 警告。
+8. 用 `{"tail": 3}` 执行 `seq 1 200000`，然后要求模型展示另一段。模型必须用 `read` 工具读取报告的文件，而不是重跑命令。
+9. 检查 `~/.local/share/opencode/log/opencode.log` 是否有 `[command.window]` 警告。

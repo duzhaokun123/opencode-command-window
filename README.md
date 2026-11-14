@@ -28,6 +28,37 @@ OpenCode loads directories under a config location's `plugins/` folder. If you k
 
 Reload OpenCode (`/reload`) or restart it. The plugin id is `command.window`.
 
+## Configuration
+
+The read-back prompt is on by default. Change it by declaring the plugin directory in `opencode.json(c)` with an `options` object:
+
+```jsonc
+{
+  "plugins": [
+    {
+      "package": "/home/me/.config/opencode/plugins/command-window",
+      "options": {
+        "readBack": true,
+        "readBackText": "Saved shell output is in the reported file; read it instead of rerunning the command."
+      }
+    }
+  ]
+}
+```
+
+| Option | Type | Meaning |
+| --- | --- | --- |
+| `readBack` | boolean | Inject the read-back paragraph into the system prompt. Defaults to `true`. |
+| `readBackText` | non-empty string | Replace the built-in English paragraph. |
+
+Notes:
+
+- A plugin discovered under a config location's `plugins/` folder receives empty options. Declaring the same absolute directory in `plugins` supplies options; the configured entry is applied last and replaces the discovered one.
+- The paragraph is only injected when the `read` tool is available to the request, and only into primary agent requests.
+- Invalid values fall back to their defaults and log a `[command.window]` warning.
+- The paragraph tells the model to continue reading a saved output file with `read` (`offset`/`limit`, at most 2000 lines per call) instead of rerunning the command. Reading a file outside the workspace can ask for directory approval.
+- The paragraph adds a fixed amount of input tokens to every primary request.
+
 ## Usage
 
 Call `shell` as usual and add one window parameter:
@@ -75,7 +106,7 @@ The body is followed by one marker paragraph:
 [showing lines 1-2 of 3 (head 2); full output was not saved because the result was not truncated]
 ```
 
-The total line count is always reported. When OpenCode saved the complete output, the marker contains the file path, so a later call can read another range with `lines` without rerunning the command. When the output was complete inline, no file exists and the marker says so instead of inventing a path.
+The total line count is always reported. When OpenCode saved the complete output, the marker contains the file path, so a later read can return another range without rerunning the command: use the `read` tool on that path with `offset` and `limit`, or call `shell` again with `lines` when the command is cheap. When the output was complete inline, no file exists and the marker says so instead of inventing a path.
 
 Marker notes:
 
@@ -116,7 +147,9 @@ pnpm check   # tsc --noEmit && vitest run
 
 | Path | Purpose |
 | --- | --- |
-| `src/index.ts` | Plugin wiring: schema and description transforms, `execute.after` hook. |
+| `src/index.ts` | Plugin wiring: options, schema and description transforms, system prompt injection, `execute.after` hook. |
+| `src/options.ts` | Plugin option validation and defaults. |
+| `src/prompt.ts` | Read-back paragraph and idempotent system part injection. |
 | `src/schema.ts` | Replacement `shell` input schema and the appended description. |
 | `src/window.ts` | Parameter parsing and marker rendering. |
 | `src/scan.ts` | Streaming file and text scans with byte caps. |
@@ -131,4 +164,5 @@ pnpm check   # tsc --noEmit && vitest run
 5. Run `seq 1 5` with `{"tail": 2}`. The marker must say the result was not truncated.
 6. Combine `lines` with `tail`. The result must start with `[window error: ...]` and keep the default preview.
 7. Start `sleep 5` with `{"background": true, "tail": 1}`. The running result must be untouched.
-8. Check `~/.local/share/opencode/log/opencode.log` for `[command.window]` warnings.
+8. Run `seq 1 200000` with `{"tail": 3}` and then ask the model to show another range. It must read the reported file with the `read` tool instead of rerunning the command.
+9. Check `~/.local/share/opencode/log/opencode.log` for `[command.window]` warnings.

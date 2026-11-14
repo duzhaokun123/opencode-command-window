@@ -5,7 +5,7 @@
 ## 仓库位置
 
 - 规范仓库：<https://git.o0kam1.dev/HumanlessCode/opencode-command-window>（即 `origin`）。
-- GitHub 仓库 <https://github.com/duzhaokun123/opencode-command-window> 是它的镜像：代码改动与 pull request 提交到规范仓库，GitHub 的 issue 可用于提问与讨论。
+- GitHub 仓库 <https://github.com/duzhaokun123/opencode-command-window> 是它的镜像：代码改动与 pull request 提交到规范仓库。GitHub 只承载必须在 GitHub 上维护的自动化（Dependabot 依赖更新、镜像上的 CI check），不接收任何推送，其 PR 仅作更新提示；GitHub 的 issue 可用于提问与讨论。
 - npm 包名是 `@o0kam1/opencode-command-window`，发布账号为 `o0kam1`。`repository` 指向 GitHub 镜像，只用于 npm 页面上的仓库链接；`homepage` 指向规范仓库，`bugs` 指向 GitHub issues；tag 与 release 只留在规范仓库。
 - 修改 `README.md` / `README.zh.md` 时保留顶部的镜像声明。
 - 依赖更新由 GitHub 镜像上的 Dependabot 负责，配置在 `.github/dependabot.yml`：`npm` 生态覆盖 `package.json` 与 `pnpm-lock.yaml`，`github-actions` 生态覆盖 workflow 中的 action 版本；每周检查一次，minor 与 patch 合并成一个 PR，major 单独开 PR。Dependabot 只运行在 GitHub 侧，它的 PR 仅作为更新提示，实际改动仍在规范仓库完成并推送。
@@ -41,11 +41,7 @@ src/apply.ts    把窗口应用到 execute.after 事件
 
 ## 发布
 
-- 版本号在 `package.json`，tag 形如 `v0.1.0`，两者必须一致。tag 只推规范仓库；GitHub 镜像不接收 tag，也不参与发布。
-- 发布由用户在本机执行 `npm publish`（浏览器 2FA）：`publishConfig` 固定 `https://registry.npmjs.org` 与 public access，`prepublishOnly` 会先跑 `pnpm check`。这样发布的包没有 provenance，因为 npm 只从 GitHub Actions、GitLab CI 与 CircleCI 生成该证明。
-- 规范仓库没有启用 Actions（Gitea `has_actions = false`）；GitHub 镜像上的 `.github/workflows/ci.yml` 只在用户同步镜像时做 check，不承担发布。
-- Gitea 与 GitHub 的 release 都由用户手动创建。
-- 发布前检查 `pnpm check`、`npm pack --dry-run` 的文件清单（只应包含非测试的 `src/*.ts`、两份 README、`LICENSE`、`package.json`），并用 tarball 装进临时项目跑一次真实会话。
+具体流程只维护在 `docs/release.md`，本节不复述。agent 只在用户明确要求时参与发版准备，且不得 push、打 tag、创建 release 或触发发布。
 
 ## 已验证行为
 
@@ -86,4 +82,5 @@ CI（`.github/workflows/ci.yml`）在 push 到 `main` 与 PR 时跑同一组命�
 ## 文档维护
 
 - `README.md`（英文）与 `README.zh.md`（中文）描述安装、参数、marker 与限制；行为变更时同步更新。
-- `LICENSE` 为 MIT，版权人 duzhaokun123（2026）。发布流程或包元数据变化时，同步 README 的 Releases 小节与本文件的“发布”小节。
+- `LICENSE` 为 MIT，版权人 duzhaokun123（2026）。
+- `docs/release.md` 是唯一的发版依据，只供维护者使用。发版流程与包元数据变化时更新该文件；两份 README 不记录发版流程，因为它们面向使用者。

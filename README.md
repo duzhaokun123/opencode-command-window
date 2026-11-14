@@ -165,13 +165,6 @@ opencode plugin remove @o0kam1/opencode-command-window
 
 For a source clone, remove its directory (or its `plugins` entry) instead, then reload OpenCode.
 
-## Releases
-
-- Versions are published to npm by hand from a checkout of the canonical repository: bump `version` in `package.json`, commit, tag `vX.Y.Z`, then run `npm publish`. `publishConfig` pins the public npm registry, and `prepublishOnly` runs `pnpm check` first.
-- Tags and releases stay on the canonical repository at <https://git.o0kam1.dev/HumanlessCode/opencode-command-window>. The GitHub mirror never receives tags, so it never publishes and never creates releases.
-- `repository` in `package.json` points at the GitHub mirror so the npm page links there; `homepage` links the canonical repository and `bugs` links the GitHub issues.
-- Packages published this way carry no provenance attestation, because npm only generates one from a supported cloud CI provider.
-
 ## Development
 
 ```sh

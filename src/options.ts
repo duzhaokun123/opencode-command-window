@@ -1,14 +1,18 @@
-import { DEFAULT_READ_BACK_TEXT } from "./prompt.ts"
+import { DEFAULT_READ_BACK_TEXT, DEFAULT_WINDOW_HINT_TEXT } from "./prompt.ts"
 
 /** Options read from the plugin entry's `options` object in `opencode.json(c)`. */
 export interface Options {
 	readonly readBack: boolean
 	readonly readBackText: string
+	readonly windowHint: boolean
+	readonly windowHintText: string
 }
 
 export const DEFAULT_OPTIONS: Options = {
 	readBack: true,
 	readBackText: DEFAULT_READ_BACK_TEXT,
+	windowHint: true,
+	windowHintText: DEFAULT_WINDOW_HINT_TEXT,
 }
 
 function warn(message: string): void {
@@ -33,13 +37,24 @@ export function resolveOptions(raw: unknown): Options {
 	if (raw.readBack !== undefined && readBack === undefined)
 		warn("readBack must be a boolean; using the default (true)")
 
-	const customText =
+	const customReadBackText =
 		typeof raw.readBackText === "string" && raw.readBackText.trim().length > 0 ? raw.readBackText : undefined
-	if (raw.readBackText !== undefined && customText === undefined)
+	if (raw.readBackText !== undefined && customReadBackText === undefined)
 		warn("readBackText must be a non-empty string; using the default text")
+
+	const windowHint = typeof raw.windowHint === "boolean" ? raw.windowHint : undefined
+	if (raw.windowHint !== undefined && windowHint === undefined)
+		warn("windowHint must be a boolean; using the default (true)")
+
+	const customWindowHintText =
+		typeof raw.windowHintText === "string" && raw.windowHintText.trim().length > 0 ? raw.windowHintText : undefined
+	if (raw.windowHintText !== undefined && customWindowHintText === undefined)
+		warn("windowHintText must be a non-empty string; using the default text")
 
 	return {
 		readBack: readBack ?? DEFAULT_OPTIONS.readBack,
-		readBackText: customText ?? DEFAULT_OPTIONS.readBackText,
+		readBackText: customReadBackText ?? DEFAULT_OPTIONS.readBackText,
+		windowHint: windowHint ?? DEFAULT_OPTIONS.windowHint,
+		windowHintText: customWindowHintText ?? DEFAULT_OPTIONS.windowHintText,
 	}
 }

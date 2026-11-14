@@ -2,7 +2,7 @@ import { Plugin } from "@opencode/plugin"
 
 import { applyWindow } from "./apply.ts"
 import { resolveOptions } from "./options.ts"
-import { injectReadBack, type SystemPartLike } from "./prompt.ts"
+import { injectReadBack, injectWindowHint, type SystemPartLike } from "./prompt.ts"
 import { DESCRIPTION_MARKER, INPUT_SCHEMA, OUTPUT_WINDOW_DESCRIPTION } from "./schema.ts"
 
 const SHELL = "shell"
@@ -39,17 +39,24 @@ export default Plugin.define({
 			const tool = event.tools[SHELL]
 			if (tool !== undefined) tool.description = withWindowDescription(tool.description)
 		}
-		const withReadBack = (event: SessionEvent) => {
+		const withPrompts = (event: SessionEvent) => {
 			describe(event)
-			if (!options.readBack) return
-			if (event.tools[READ] === undefined) return
-			try {
-				injectReadBack(event.system, options.readBackText)
-			} catch (error) {
-				console.warn("[command.window] failed to inject the read-back prompt", error)
+			if (options.windowHint && event.tools[SHELL] !== undefined) {
+				try {
+					injectWindowHint(event.system, options.windowHintText)
+				} catch (error) {
+					console.warn("[command.window] failed to inject the output-window prompt", error)
+				}
+			}
+			if (options.readBack && event.tools[READ] !== undefined) {
+				try {
+					injectReadBack(event.system, options.readBackText)
+				} catch (error) {
+					console.warn("[command.window] failed to inject the read-back prompt", error)
+				}
 			}
 		}
-		await ctx.session.hook("context", withReadBack)
+		await ctx.session.hook("context", withPrompts)
 		await ctx.session.hook("compaction", describe)
 		await ctx.session.hook("generate", describe)
 

@@ -65,4 +65,4 @@ export const INPUT_SCHEMA: Record<string, unknown> = {
 export const DESCRIPTION_MARKER = "Output window:"
 
 export const OUTPUT_WINDOW_DESCRIPTION =
-	"Output window: when the result is large, OpenCode keeps only the last lines and saves the full output to a file. To choose a different range yourself, pass tail, head, or lines instead of piping the command through head or tail. tail and head may be combined to return the start and the end. max_bytes caps the returned bytes. Every windowed result reports the total line count and, when OpenCode saved the full output, the file path, so a later call can read another range from that file without rerunning the command."
+	"Output window: when the result is large, OpenCode keeps only the last lines and saves the full output to a file. Pass tail, head, or lines to choose the range this call returns; tail and head may be combined to return both the start and the end, and max_bytes caps the returned bytes. Every windowed result reports the total line count and, when OpenCode saved the full output, the file path, so a later call can read another range from that file without rerunning the command."

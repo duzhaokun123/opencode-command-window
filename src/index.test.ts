@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 
 import plugin from "./index.ts"
-import { type SystemPartLike } from "./prompt.ts"
+import { DEFAULT_READ_BACK_TEXT, DEFAULT_WINDOW_HINT_TEXT, type SystemPartLike } from "./prompt.ts"
 import { INPUT_SCHEMA, OUTPUT_WINDOW_DESCRIPTION } from "./schema.ts"
 
 type SetupContext = Parameters<typeof plugin.setup>[0]
@@ -97,14 +97,15 @@ describe("plugin setup", () => {
 		}
 	})
 
-	it("injects the read-back prompt into primary requests only", async () => {
+	it("injects both prompts into primary requests only", async () => {
 		const fake = fakeContext()
 		await plugin.setup(fake.context)
 		const event = { tools: { shell: { description: "Run a command" }, read: { description: "Read" } }, system: [] as SystemPartLike[] }
 
 		fake.runSessionHook("context", event)
-		expect(event.system).toHaveLength(1)
-		expect(event.system[0]?.text).toContain("full output saved to <path>")
+		expect(event.system.map((part) => part.metadata?.kind)).toEqual(["window-hint", "read-back"])
+		expect(event.system[0]?.text).toContain("| head")
+		expect(event.system[1]?.text).toContain("full output saved to <path>")
 
 		const secondary = { ...event, system: [] as SystemPartLike[] }
 		fake.runSessionHook("compaction", secondary)
@@ -112,32 +113,50 @@ describe("plugin setup", () => {
 		expect(secondary.system).toHaveLength(0)
 	})
 
-	it("injects the prompt once per request", async () => {
+	it("injects each prompt once per request", async () => {
 		const fake = fakeContext()
 		await plugin.setup(fake.context)
 		const event = { tools: { shell: { description: "Run a command" }, read: { description: "Read" } }, system: [] as SystemPartLike[] }
 
 		fake.runSessionHook("context", event)
 		fake.runSessionHook("context", event)
-		expect(event.system).toHaveLength(1)
+		expect(event.system).toHaveLength(2)
 	})
 
-	it("skips the prompt when readBack is disabled", async () => {
+	it("keeps the window hint when readBack is disabled", async () => {
 		const fake = fakeContext(undefined, { readBack: false })
 		await plugin.setup(fake.context)
 		const event = { tools: { shell: { description: "Run a command" }, read: { description: "Read" } }, system: [] as SystemPartLike[] }
 
 		fake.runSessionHook("context", event)
-		expect(event.system).toHaveLength(0)
+		expect(event.system.map((part) => part.metadata?.kind)).toEqual(["window-hint"])
 	})
 
-	it("skips the prompt when the read tool is absent", async () => {
+	it("skips the window hint when windowHint is disabled", async () => {
+		const fake = fakeContext(undefined, { windowHint: false })
+		await plugin.setup(fake.context)
+		const event = { tools: { shell: { description: "Run a command" }, read: { description: "Read" } }, system: [] as SystemPartLike[] }
+
+		fake.runSessionHook("context", event)
+		expect(event.system.map((part) => part.metadata?.kind)).toEqual(["read-back"])
+	})
+
+	it("skips the read-back prompt when the read tool is absent", async () => {
 		const fake = fakeContext()
 		await plugin.setup(fake.context)
 		const event = { tools: { shell: { description: "Run a command" } }, system: [] as SystemPartLike[] }
 
 		fake.runSessionHook("context", event)
-		expect(event.system).toHaveLength(0)
+		expect(event.system.map((part) => part.metadata?.kind)).toEqual(["window-hint"])
+	})
+
+	it("skips the window hint when the shell tool is absent", async () => {
+		const fake = fakeContext()
+		await plugin.setup(fake.context)
+		const event = { tools: { read: { description: "Read" } }, system: [] as SystemPartLike[] }
+
+		fake.runSessionHook("context", event)
+		expect(event.system.map((part) => part.metadata?.kind)).toEqual(["read-back"])
 	})
 
 	it("uses a custom read-back text", async () => {
@@ -146,7 +165,16 @@ describe("plugin setup", () => {
 		const event = { tools: { shell: { description: "Run a command" }, read: { description: "Read" } }, system: [] as SystemPartLike[] }
 
 		fake.runSessionHook("context", event)
-		expect(event.system.map((part) => part.text)).toEqual(["Use read please."])
+		expect(event.system.map((part) => part.text)).toEqual([DEFAULT_WINDOW_HINT_TEXT, "Use read please."])
+	})
+
+	it("uses a custom window hint text", async () => {
+		const fake = fakeContext(undefined, { windowHintText: "Use window parameters." })
+		await plugin.setup(fake.context)
+		const event = { tools: { shell: { description: "Run a command" }, read: { description: "Read" } }, system: [] as SystemPartLike[] }
+
+		fake.runSessionHook("context", event)
+		expect(event.system.map((part) => part.text)).toEqual(["Use window parameters.", DEFAULT_READ_BACK_TEXT])
 	})
 
 	it("applies windows through execute.after", async () => {

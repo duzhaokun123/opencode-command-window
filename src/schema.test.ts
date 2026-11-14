@@ -40,4 +40,13 @@ describe("description", () => {
 		expect(OUTPUT_WINDOW_DESCRIPTION).not.toContain("grep")
 		expect(OUTPUT_WINDOW_DESCRIPTION).not.toContain("context")
 	})
+
+	it("leaves the piping guidance to the system prompt", () => {
+		expect(OUTPUT_WINDOW_DESCRIPTION).not.toContain("piping")
+	})
+
+	it("still names every window parameter", () => {
+		for (const name of ["tail", "head", "lines", "max_bytes"])
+			expect(OUTPUT_WINDOW_DESCRIPTION).toContain(name)
+	})
 })

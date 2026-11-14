@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 
 import { DEFAULT_OPTIONS, resolveOptions } from "./options.ts"
-import { DEFAULT_READ_BACK_TEXT } from "./prompt.ts"
+import { DEFAULT_READ_BACK_TEXT, DEFAULT_WINDOW_HINT_TEXT } from "./prompt.ts"
 
 function captureWarnings() {
 	const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
@@ -18,19 +18,40 @@ describe("resolveOptions", () => {
 		expect(resolveOptions({})).toEqual(DEFAULT_OPTIONS)
 		expect(DEFAULT_OPTIONS.readBack).toBe(true)
 		expect(DEFAULT_OPTIONS.readBackText).toBe(DEFAULT_READ_BACK_TEXT)
+		expect(DEFAULT_OPTIONS.windowHint).toBe(true)
+		expect(DEFAULT_OPTIONS.windowHintText).toBe(DEFAULT_WINDOW_HINT_TEXT)
 	})
 
 	it("disables the read-back prompt", () => {
 		expect(resolveOptions({ readBack: false })).toEqual({
 			readBack: false,
 			readBackText: DEFAULT_READ_BACK_TEXT,
+			windowHint: true,
+			windowHintText: DEFAULT_WINDOW_HINT_TEXT,
 		})
 	})
 
-	it("replaces the default text", () => {
+	it("disables the window hint", () => {
+		expect(resolveOptions({ windowHint: false })).toEqual({
+			readBack: true,
+			readBackText: DEFAULT_READ_BACK_TEXT,
+			windowHint: false,
+			windowHintText: DEFAULT_WINDOW_HINT_TEXT,
+		})
+	})
+
+	it("replaces the default texts", () => {
 		expect(resolveOptions({ readBackText: "Custom instruction." })).toEqual({
 			readBack: true,
 			readBackText: "Custom instruction.",
+			windowHint: true,
+			windowHintText: DEFAULT_WINDOW_HINT_TEXT,
+		})
+		expect(resolveOptions({ windowHintText: "Use window parameters." })).toEqual({
+			readBack: true,
+			readBackText: DEFAULT_READ_BACK_TEXT,
+			windowHint: true,
+			windowHintText: "Use window parameters.",
 		})
 	})
 
@@ -38,6 +59,8 @@ describe("resolveOptions", () => {
 		expect(resolveOptions({ readBack: false, unknown: 1 })).toEqual({
 			readBack: false,
 			readBackText: DEFAULT_READ_BACK_TEXT,
+			windowHint: true,
+			windowHintText: DEFAULT_WINDOW_HINT_TEXT,
 		})
 	})
 
@@ -47,8 +70,13 @@ describe("resolveOptions", () => {
 			expect(resolveOptions({ readBack: "no", readBackText: 42 })).toEqual(DEFAULT_OPTIONS)
 			expect(resolveOptions({ readBackText: "   " })).toEqual(DEFAULT_OPTIONS)
 			expect(resolveOptions({ readBack: null })).toEqual(DEFAULT_OPTIONS)
+			expect(resolveOptions({ windowHint: "no", windowHintText: 42 })).toEqual(DEFAULT_OPTIONS)
+			expect(resolveOptions({ windowHintText: "   " })).toEqual(DEFAULT_OPTIONS)
+			expect(resolveOptions({ windowHint: null })).toEqual(DEFAULT_OPTIONS)
 			expect(capture.messages().filter((message) => message.includes("readBack must be a boolean"))).toHaveLength(2)
 			expect(capture.messages().filter((message) => message.includes("readBackText must be"))).toHaveLength(2)
+			expect(capture.messages().filter((message) => message.includes("windowHint must be a boolean"))).toHaveLength(2)
+			expect(capture.messages().filter((message) => message.includes("windowHintText must be"))).toHaveLength(2)
 		} finally {
 			capture.restore()
 		}

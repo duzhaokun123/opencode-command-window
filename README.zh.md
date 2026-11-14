@@ -4,16 +4,34 @@
 > 规范仓库为 <https://git.o0kam1.dev/HumanlessCode/opencode-command-window>，代码改动与
 > pull request 请提交到规范仓库；GitHub 的 issue 可用于提问与讨论。
 
-一个 OpenCode V2 服务端插件，为内置 `shell` 工具补上显式输出窗口：`tail`、`head`、`lines`、`max_bytes`。
+一个非官方的 OpenCode V2 服务端插件，为内置 `shell` 工具补上显式输出窗口：`tail`、`head`、`lines`、`max_bytes`。
 
 OpenCode 默认只保留大段输出的末尾，并把完整输出保存到文件。如果命令自己接 `head`/`tail`，返回里就看不到总行数和保存路径。这个插件让模型在命令执行完之后，直接指定真正需要的那一段，而不必重跑命令。
 
 ## 环境要求
 
 - OpenCode v2.3.0 或更新版本。
-- 从源码安装需要 Node.js 与 pnpm。
+- 只有从源码安装时才需要 Node.js 与 pnpm。
 
 ## 安装
+
+用 OpenCode CLI 安装：
+
+```sh
+opencode plugin add @o0kam1/opencode-command-window
+```
+
+或者把它写进 `opencode.json(c)` 的 `plugins`：
+
+```jsonc
+{
+  "plugins": ["@o0kam1/opencode-command-window"]
+}
+```
+
+执行 `/reload` 或重启 OpenCode。插件 id 是 `command.window`，与包名不同：禁用或配置插件时要用这个 id。
+
+如果要使用尚未发布的代码，把仓库克隆到全局插件目录并安装依赖：
 
 ```sh
 git clone https://git.o0kam1.dev/HumanlessCode/opencode-command-window.git \
@@ -22,7 +40,7 @@ cd ~/.config/opencode/plugins/command-window
 pnpm install --prod
 ```
 
-OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果插件放在别处，请把绝对路径写进 `opencode.json(c)` 的 `plugins`：
+OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果克隆放在别处，请把它的绝对路径写进 `opencode.json(c)` 的 `plugins`：
 
 ```jsonc
 {
@@ -30,17 +48,15 @@ OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果插件�
 }
 ```
 
-执行 `/reload` 或重启 OpenCode。插件 id 为 `command.window`。
-
 ## 配置
 
-回读提示默认开启。要修改，请在 `opencode.json(c)` 中显式声明插件目录并附上 `options`：
+回读提示默认开启。要修改，请在 `opencode.json(c)` 中声明插件并附上 `options`：
 
 ```jsonc
 {
   "plugins": [
     {
-      "package": "/home/me/.config/opencode/plugins/command-window",
+      "package": "@o0kam1/opencode-command-window",
       "options": {
         "readBack": true,
         "readBackText": "完整输出在报告的文件里，请读取该文件而不是重跑命令。"
@@ -57,7 +73,7 @@ OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果插件�
 
 说明：
 
-- 通过配置目录 `plugins/` 自动发现的插件拿到的是空选项。要配置选项，必须在 `plugins` 中显式声明同一个绝对目录；配置条目最后应用，会替换自动发现的那一条。
+- 选项只来自 `plugins` 条目。通过配置目录 `plugins/` 自动发现的插件拿到的是空选项；在 `plugins` 中声明同一个包或同一个绝对目录即可提供选项，并替换自动发现的那一条。
 - 只有当本次请求能用到 `read` 工具时才注入，且只注入主 Agent 请求。
 - 无效值会回退默认值，并在日志中留下 `[command.window]` 警告。
 - 该段落要求模型用 `read`（`offset`/`limit`，单次最多 2000 行）继续读取保存的输出文件，而不是重跑命令。读取工作区外的文件可能触发目录授权确认。
@@ -140,7 +156,17 @@ marker 备注：
 
 ## 卸载
 
-删除插件目录（或 `plugins` 中的对应条目），然后重新加载 OpenCode。
+```sh
+opencode plugin remove @o0kam1/opencode-command-window
+```
+
+如果是源码安装，请删除对应目录（或 `plugins` 中的对应条目），然后重新加载 OpenCode。
+
+## 发布
+
+- 向 GitHub 镜像推送 `v*` tag 会触发 `.github/workflows/release.yml`，它通过 npm 可信发布把包发到 npm，并给每个由它发布的版本附带 provenance 证明。
+- `0.1.0` 在配置可信发布之前由本地检出直接发布，因此这个版本没有 provenance 证明。
+- `package.json` 的 `repository` 指向 GitHub 镜像，因为 npm 要求该字段与可信发布的来源一致。规范仓库仍然是 <https://git.o0kam1.dev/HumanlessCode/opencode-command-window>。
 
 ## 开发
 

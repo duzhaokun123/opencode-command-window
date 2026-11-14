@@ -7,16 +7,34 @@
 > pull requests belong there. GitHub issues are welcome for questions and
 > discussion.
 
-An OpenCode V2 server plugin that gives the built-in `shell` tool explicit output windows: `tail`, `head`, `lines`, and `max_bytes`.
+An unofficial OpenCode V2 server plugin that gives the built-in `shell` tool explicit output windows: `tail`, `head`, `lines`, and `max_bytes`.
 
 The default shell tool keeps only the end of large output and saves the rest to a file. Piping a command through `head` or `tail` hides the total line count and the saved path. This plugin lets the model ask for the range it actually needs, after the command has run, without rerunning it.
 
 ## Requirements
 
 - OpenCode v2.3.0 or newer.
-- Node.js and pnpm to install the plugin from source.
+- Node.js and pnpm only when you install from source.
 
 ## Install
+
+Install the package with the OpenCode CLI:
+
+```sh
+opencode plugin add @o0kam1/opencode-command-window
+```
+
+Or add it to `plugins` in `opencode.json(c)`:
+
+```jsonc
+{
+  "plugins": ["@o0kam1/opencode-command-window"]
+}
+```
+
+Reload OpenCode (`/reload`) or restart it. The plugin id is `command.window`, which differs from the package name: use the id when you disable or configure the plugin.
+
+To run unreleased code, clone the repository into the global plugin directory and install its dependencies:
 
 ```sh
 git clone https://git.o0kam1.dev/HumanlessCode/opencode-command-window.git \
@@ -25,7 +43,7 @@ cd ~/.config/opencode/plugins/command-window
 pnpm install --prod
 ```
 
-OpenCode loads directories under a config location's `plugins/` folder. If you keep the plugin somewhere else, add its absolute path to `plugins` in `opencode.json(c)`:
+OpenCode loads directories under a config location's `plugins/` folder. If you keep the clone somewhere else, add its absolute path to `plugins` in `opencode.json(c)`:
 
 ```jsonc
 {
@@ -33,17 +51,15 @@ OpenCode loads directories under a config location's `plugins/` folder. If you k
 }
 ```
 
-Reload OpenCode (`/reload`) or restart it. The plugin id is `command.window`.
-
 ## Configuration
 
-The read-back prompt is on by default. Change it by declaring the plugin directory in `opencode.json(c)` with an `options` object:
+The read-back prompt is on by default. Change it by declaring the plugin in `opencode.json(c)` with an `options` object:
 
 ```jsonc
 {
   "plugins": [
     {
-      "package": "/home/me/.config/opencode/plugins/command-window",
+      "package": "@o0kam1/opencode-command-window",
       "options": {
         "readBack": true,
         "readBackText": "Saved shell output is in the reported file; read it instead of rerunning the command."
@@ -60,7 +76,7 @@ The read-back prompt is on by default. Change it by declaring the plugin directo
 
 Notes:
 
-- A plugin discovered under a config location's `plugins/` folder receives empty options. Declaring the same absolute directory in `plugins` supplies options; the configured entry is applied last and replaces the discovered one.
+- Options only come from a `plugins` entry. A plugin discovered under a config location's `plugins/` folder receives empty options; declaring the same package or absolute directory in `plugins` supplies options and replaces the discovered entry.
 - The paragraph is only injected when the `read` tool is available to the request, and only into primary agent requests.
 - Invalid values fall back to their defaults and log a `[command.window]` warning.
 - The paragraph tells the model to continue reading a saved output file with `read` (`offset`/`limit`, at most 2000 lines per call) instead of rerunning the command. Reading a file outside the workspace can ask for directory approval.
@@ -143,7 +159,17 @@ Marker notes:
 
 ## Uninstall
 
-Remove the plugin directory (or its `plugins` entry) and reload OpenCode.
+```sh
+opencode plugin remove @o0kam1/opencode-command-window
+```
+
+For a source clone, remove its directory (or its `plugins` entry) instead, then reload OpenCode.
+
+## Releases
+
+- Pushing a `v*` tag to the GitHub mirror runs `.github/workflows/release.yml`, which publishes to npm through npm trusted publishing and attaches a provenance attestation to each release it publishes.
+- `0.1.0` was published from a local checkout before trusted publishing existed, so that version has no provenance attestation.
+- `repository` in `package.json` points at the GitHub mirror because npm requires that field to match the source of a trusted publish. The canonical repository remains <https://git.o0kam1.dev/HumanlessCode/opencode-command-window>.
 
 ## Development
 

@@ -5,8 +5,8 @@
 ## 仓库位置
 
 - 规范仓库：<https://git.o0kam1.dev/HumanlessCode/opencode-command-window>（即 `origin`）。
-- GitHub 仓库 <https://github.com/duzhaokun123/opencode-command-window> 是它的镜像：代码改动与 pull request 提交到规范仓库。GitHub 只承载必须在 GitHub 上维护的自动化（Dependabot 依赖更新、镜像上的 CI check），不接收任何推送，其 PR 仅作更新提示；GitHub 的 issue 可用于提问与讨论。
-- npm 包名是 `@o0kam1/opencode-command-window`，发布账号为 `o0kam1`。`repository` 指向 GitHub 镜像，只用于 npm 页面上的仓库链接；`homepage` 指向规范仓库，`bugs` 指向 GitHub issues；tag 与 release 只留在规范仓库。
+- GitHub 仓库 <https://github.com/duzhaokun123/opencode-command-window> 是它的镜像：代码改动与 pull request 提交到规范仓库。镜像的 `main` 与 `v*` tag 由 `.gitea/workflows/mirror.yml` 自动推送（细节见 `docs/release.md`）；GitHub 另外承载必须在那边维护的自动化（Dependabot 依赖更新、镜像上的 CI check），其 PR 仅作更新提示，GitHub 的 issue 可用于提问与讨论。
+- npm 包名是 `@o0kam1/opencode-command-window`，发布账号为 `o0kam1`。`repository` 指向 GitHub 镜像，只用于 npm 页面上的仓库链接；`homepage` 指向规范仓库，`bugs` 指向 GitHub issues；tag 与 release 只在规范仓库创建。
 - 修改 `README.md` / `README.zh.md` 时保留顶部的镜像声明。
 - 依赖更新由 GitHub 镜像上的 Dependabot 负责，配置在 `.github/dependabot.yml`：`npm` 生态覆盖 `package.json` 与 `pnpm-lock.yaml`，`github-actions` 生态覆盖 workflow 中的 action 版本；每周检查一次，minor 与 patch 合并成一个 PR，major 单独开 PR。Dependabot 只运行在 GitHub 侧，它的 PR 仅作为更新提示，实际改动仍在规范仓库完成并推送。
 
@@ -37,7 +37,7 @@ src/apply.ts    把窗口应用到 execute.after 事件
 - 模型身份写在提交作者：`git commit --author "DeepSeek Flash <deepseek-flash@llm.invalid>"`；Agent 应用身份写在正文末尾的 `Co-authored-by` 尾注（实际运行版本，如 `opencode v2.3.0`，不写邮箱）。
 - 不允许把多个步骤攒到会话末尾一次性提交。
 - 未获用户明确要求时，不要 `git push`、创建标签、创建 release 或触发发布。
-- **禁止向 `github` 远程推送任何内容**，包括 `main`、tag 与 force-push。GitHub 镜像的同步一律由用户执行；agent 对 `github` 远程只做读取与对照。
+- **禁止 agent 直接向 `github` 远程推送任何内容**，包括 `main`、tag 与 force-push。镜像同步只由 `.gitea/workflows/mirror.yml` 完成；agent 对 `github` 远程只做读取与对照。
 
 ## 发布
 
@@ -61,7 +61,7 @@ src/apply.ts    把窗口应用到 execute.after 事件
 pnpm check   # tsc --noEmit + vitest run
 ```
 
-CI（`.github/workflows/ci.yml`）在 push 到 `main` 与 PR 时跑同一组命令。
+CI（`.github/workflows/ci.yml`）在 push 到 `main` 与 PR 时跑同一组命令；Gitea 只读 `.gitea/workflows/`，所以它要等镜像同步到 GitHub 后才运行。
 
 插件行为只能在真实 OpenCode 会话里验证：安装后保存配置触发热重载，或执行 `/reload`；日志位于 `~/.local/share/opencode/log/opencode.log`。验证项见 README 的“验证”一节。
 

@@ -6,7 +6,7 @@
 
 - 规范仓库 <https://git.o0kam1.dev/HumanlessCode/opencode-command-window> 是本地的 `origin`。分支与 tag 的所有推送只发往 `origin`。
 - GitHub 仓库 <https://github.com/duzhaokun123/opencode-command-window> 是镜像。它的 `main` 与 `v*` tag 由 `.gitea/workflows/mirror.yml` 自动同步，因此 tag 也会出现在 GitHub。它另外承载必须在 GitHub 上维护的自动化：Dependabot 的依赖更新，以及镜像上的 CI check。Dependabot 的 PR 只作为更新提示，实际改动仍在 `origin` 完成并推送。
-- 规范仓库已启用 Gitea Actions，但 Gitea 只读 `.gitea/workflows/`，`.github/workflows/ci.yml` 与 `.github/workflows/release.yml` 只在 GitHub 镜像上运行，`pnpm check` 不消耗 runner。发布在 GitHub 镜像上执行。
+- 规范仓库的 Gitea Actions 只读 `.gitea/workflows/`：`mirror.yml` 同步 GitHub 镜像，`release.yml` 在 tag 推送后创建 Gitea Release。`.github/workflows/ci.yml` 与 `.github/workflows/release.yml` 只在 GitHub 镜像上运行，`pnpm check` 不消耗 Gitea runner。npm 发布在 GitHub 镜像上执行，Gitea 侧的 release 工作流不接触 npm。
 - 注册在 Gitea 上的 runner 使用 `host` 标签，job 直接在 runner 机器上执行。
 
 ## 镜像工作流
@@ -20,10 +20,21 @@
 - 从 `origin` 读取时用匿名 HTTPS（仓库公开）。仓库转为私有后需要改成带凭据读取。
 - 重复运行是幂等的；需要补齐时手动运行 `mirror` 即可。
 
+## Gitea Release 工作流
+
+`.gitea/workflows/release.yml` 在 `v*` tag 推送到 `origin` 后运行，也可以用 `workflow_dispatch` 指定一个已存在的 tag 手动补建或重跑。
+
+- 使用 Gitea 自动注入的 `GITEA_TOKEN`（`secrets.GITEA_TOKEN`），并声明 `releases: write`；不新增 secret。以 `GITEA_` 开头的名称不允许用户定义，这个 token 由 job 自动注入。
+- 与镜像工作流一样不使用 `uses:`；job 在 `host` runner 上匿名 clone 公开仓库，再调用 API 创建 release。runner 机器已装 node，用来读取 `package.json` 与构造 JSON payload；这个工作流不需要 pnpm，也不跑 `pnpm check`。
+- 创建前校验 tag 形如 `v<major>.<minor>.<patch>[-pre][+build]`，并且 `v<package.json version>` 与 tag 完全一致。
+- Release 标题与 tag 相同；正文列出自上一个 `v*` tag 以来的非合并 commit（`- 标题 (短哈希)`），仓库的第一个版本 tag 列出该 tag 的全部历史。tag 的版本核带 `-` 后缀（例如 `v0.2.0-rc.1`）时标记为 prerelease。
+- 已经存在同 tag 的 release 时更新标题、正文与 prerelease 标记，不会重复创建，因此重跑是幂等的。
+- 仓库的 Actions 权限若被设为 Restricted，需要在 Settings → Actions → General 允许 `releases` 写入；否则 `GITEA_TOKEN` 创建 release 会返回 403。
+
 ## 版本与 tag
 
 - 版本号写在 `package.json` 的 `version`，tag 形如 `v0.1.0`，两者必须一致。
-- 提交版本改动后打 tag，并把 tag 推送到 `origin`；镜像工作流把它带到 GitHub，`release.yml` 随即在镜像上发布这个版本。
+- 提交版本改动后打 tag，并把 tag 推送到 `origin`；Gitea 的 `release.yml` 随即在 `origin` 创建同名 release，镜像工作流把 tag 带到 GitHub 后，`.github/workflows/release.yml` 在镜像上发布 npm 包。
 
 ## 发布前检查
 
@@ -54,9 +65,10 @@ npm pack --dry-run        # 核对文件清单
 - 重复的版本会让 `npm publish` 失败，因此同一个版本不会被覆盖。
 - `0.0.0-stage` 与 `0.1.0` 都没有 provenance（registry 上 `dist.attestations` 为空）；从 `v0.1.1` 起由 workflow 发布并自动附带 provenance。
 - `publishConfig` 固定 `https://registry.npmjs.org` 与 public access；`prepublishOnly` 仍会在本机手动执行 `npm publish` 时先跑 `pnpm check`。
+- Gitea 的 `release` workflow 只创建 release，不发布 npm；npm 发布始终由 GitHub 镜像上的 workflow 完成。
 
 ## 发布后
 
-- 在 `origin` 手动创建 release，标题与 tag 保持一致。
+- 检查 `origin` 上 `release` workflow 的结果，确认 release 已创建且标题、正文正确。失败时先看日志并重跑该次运行；需要补建或修正时，用 `workflow_dispatch` 传入已有 tag。
 - 不在 GitHub 创建 release。GitHub 会通过镜像拿到 tag，但不生成 release。
 - 检查 GitHub 上 `release` workflow 的结果。失败时先看日志并重跑该次运行；不要改用本机 token 补发，否则这个版本会失去 provenance。

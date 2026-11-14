@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 
 import plugin from "./index.ts"
+import { type SystemPartLike } from "./prompt.ts"
 import { INPUT_SCHEMA, OUTPUT_WINDOW_DESCRIPTION } from "./schema.ts"
 
 type SetupContext = Parameters<typeof plugin.setup>[0]
@@ -13,12 +14,16 @@ type TestTool = {
 	input: unknown
 }
 
-function fakeContext(tools: TestTool[] = [{ id: "shell", name: "shell", description: "Run a command", input: {} }]) {
+function fakeContext(
+	tools: TestTool[] = [{ id: "shell", name: "shell", description: "Run a command", input: {} }],
+	options: Record<string, unknown> = {},
+) {
 	let transform: ((editor: ToolEditor) => void) | undefined
 	let after: ((event: never) => Promise<void> | void) | undefined
 	const sessionHooks = new Map<string, (event: never) => void>()
 	const list = vi.fn(async () => tools)
 	const context = {
+		options,
 		tool: {
 			list,
 			transform: async (callback: (editor: ToolEditor) => void) => {
@@ -44,7 +49,10 @@ function fakeContext(tools: TestTool[] = [{ id: "shell", name: "shell", descript
 			expect(transform).toBeDefined()
 			transform!(editor)
 		},
-		runSessionHook(name: string, event: { tools: Record<string, { description: string }> }) {
+		runSessionHook(
+			name: string,
+			event: { tools: Record<string, { description: string }>; system: SystemPartLike[] },
+		) {
 			expect(sessionHooks.has(name)).toBe(true)
 			sessionHooks.get(name)!(event as never)
 		},
@@ -82,11 +90,63 @@ describe("plugin setup", () => {
 		const fake = fakeContext()
 		await plugin.setup(fake.context)
 		for (const name of ["context", "compaction", "generate"]) {
-			const event = { tools: { shell: { description: "Run a command" } } }
+			const event = { tools: { shell: { description: "Run a command" } }, system: [] as SystemPartLike[] }
 			fake.runSessionHook(name, event)
 			fake.runSessionHook(name, event)
 			expect(event.tools.shell.description).toBe(`Run a command\n\n${OUTPUT_WINDOW_DESCRIPTION}`)
 		}
+	})
+
+	it("injects the read-back prompt into primary requests only", async () => {
+		const fake = fakeContext()
+		await plugin.setup(fake.context)
+		const event = { tools: { shell: { description: "Run a command" }, read: { description: "Read" } }, system: [] as SystemPartLike[] }
+
+		fake.runSessionHook("context", event)
+		expect(event.system).toHaveLength(1)
+		expect(event.system[0]?.text).toContain("full output saved to <path>")
+
+		const secondary = { ...event, system: [] as SystemPartLike[] }
+		fake.runSessionHook("compaction", secondary)
+		fake.runSessionHook("generate", secondary)
+		expect(secondary.system).toHaveLength(0)
+	})
+
+	it("injects the prompt once per request", async () => {
+		const fake = fakeContext()
+		await plugin.setup(fake.context)
+		const event = { tools: { shell: { description: "Run a command" }, read: { description: "Read" } }, system: [] as SystemPartLike[] }
+
+		fake.runSessionHook("context", event)
+		fake.runSessionHook("context", event)
+		expect(event.system).toHaveLength(1)
+	})
+
+	it("skips the prompt when readBack is disabled", async () => {
+		const fake = fakeContext(undefined, { readBack: false })
+		await plugin.setup(fake.context)
+		const event = { tools: { shell: { description: "Run a command" }, read: { description: "Read" } }, system: [] as SystemPartLike[] }
+
+		fake.runSessionHook("context", event)
+		expect(event.system).toHaveLength(0)
+	})
+
+	it("skips the prompt when the read tool is absent", async () => {
+		const fake = fakeContext()
+		await plugin.setup(fake.context)
+		const event = { tools: { shell: { description: "Run a command" } }, system: [] as SystemPartLike[] }
+
+		fake.runSessionHook("context", event)
+		expect(event.system).toHaveLength(0)
+	})
+
+	it("uses a custom read-back text", async () => {
+		const fake = fakeContext(undefined, { readBackText: "Use read please." })
+		await plugin.setup(fake.context)
+		const event = { tools: { shell: { description: "Run a command" }, read: { description: "Read" } }, system: [] as SystemPartLike[] }
+
+		fake.runSessionHook("context", event)
+		expect(event.system.map((part) => part.text)).toEqual(["Use read please."])
 	})
 
 	it("applies windows through execute.after", async () => {

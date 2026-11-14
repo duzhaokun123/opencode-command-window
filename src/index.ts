@@ -1,9 +1,18 @@
 import { Plugin } from "@opencode/plugin"
 
 import { applyWindow } from "./apply.ts"
+import { resolveOptions } from "./options.ts"
+import { injectReadBack, type SystemPartLike } from "./prompt.ts"
 import { DESCRIPTION_MARKER, INPUT_SCHEMA, OUTPUT_WINDOW_DESCRIPTION } from "./schema.ts"
 
 const SHELL = "shell"
+const READ = "read"
+
+/** The subset of a session request this plugin reads and edits. */
+type SessionEvent = {
+	readonly tools: Record<string, { description: string }>
+	system: SystemPartLike[]
+}
 
 function withWindowDescription(description: string): string {
 	if (description.includes(DESCRIPTION_MARKER)) return description
@@ -13,6 +22,8 @@ function withWindowDescription(description: string): string {
 export default Plugin.define({
 	id: "command.window",
 	async setup(ctx) {
+		const options = resolveOptions(ctx.options)
+
 		const tools = await ctx.tool.list()
 		if (!tools.some((tool) => tool.id === SHELL)) return
 
@@ -24,11 +35,21 @@ export default Plugin.define({
 			})
 		})
 
-		const describe = (event: { tools: Record<string, { description: string }> }) => {
+		const describe = (event: SessionEvent) => {
 			const tool = event.tools[SHELL]
 			if (tool !== undefined) tool.description = withWindowDescription(tool.description)
 		}
-		await ctx.session.hook("context", describe)
+		const withReadBack = (event: SessionEvent) => {
+			describe(event)
+			if (!options.readBack) return
+			if (event.tools[READ] === undefined) return
+			try {
+				injectReadBack(event.system, options.readBackText)
+			} catch (error) {
+				console.warn("[command.window] failed to inject the read-back prompt", error)
+			}
+		}
+		await ctx.session.hook("context", withReadBack)
 		await ctx.session.hook("compaction", describe)
 		await ctx.session.hook("generate", describe)
 

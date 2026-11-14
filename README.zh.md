@@ -6,7 +6,7 @@
 
 一个非官方的 OpenCode V2 服务端插件，为内置 `shell` 工具补上显式输出窗口：`tail`、`head`、`lines`、`max_bytes`。
 
-OpenCode 默认只保留大段输出的末尾，并把完整输出保存到文件。如果命令自己接 `head`/`tail`，返回里就看不到总行数和保存路径。这个插件让模型在命令执行完之后，直接指定真正需要的那一段，而不必重跑命令。
+OpenCode 默认只保留大段输出的末尾，并把完整输出保存到文件。如果命令自己接 `head`/`tail`，返回里就看不到总行数和保存路径。这个插件让模型在命令执行完之后，直接指定真正需要的那一段，而不必重跑命令；默认还会提示模型用这些参数限制输出，而不是把命令接到 `head`/`tail`。
 
 ## 环境要求
 
@@ -50,7 +50,7 @@ OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果克隆�
 
 ## 配置
 
-回读提示默认开启。要修改，请在 `opencode.json(c)` 中声明插件并附上 `options`：
+两段系统提示词默认都开启。要修改，请在 `opencode.json(c)` 中声明插件并附上 `options`：
 
 ```jsonc
 {
@@ -58,6 +58,8 @@ OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果克隆�
     {
       "package": "@o0kam1/opencode-command-window",
       "options": {
+        "windowHint": true,
+        "windowHintText": "用 shell 的输出窗口参数限制输出，不要把命令接到 head 或 tail。",
         "readBack": true,
         "readBackText": "完整输出在报告的文件里，请读取该文件而不是重跑命令。"
       }
@@ -68,16 +70,19 @@ OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果克隆�
 
 | 选项 | 类型 | 含义 |
 | --- | --- | --- |
+| `windowHint` | 布尔 | 是否把截断参数段落注入系统提示词，默认 `true`。 |
+| `windowHintText` | 非空字符串 | 替换内置的截断参数段落。 |
 | `readBack` | 布尔 | 是否把回读段落注入系统提示词，默认 `true`。 |
-| `readBackText` | 非空字符串 | 替换内置的英文段落。 |
+| `readBackText` | 非空字符串 | 替换内置的回读段落。 |
 
 说明：
 
 - 选项只来自 `plugins` 条目。通过配置目录 `plugins/` 自动发现的插件拿到的是空选项；在 `plugins` 中声明同一个包或同一个绝对目录即可提供选项，并替换自动发现的那一条。
-- 只有当本次请求能用到 `read` 工具时才注入，且只注入主 Agent 请求。
+- 两段提示都只注入主 Agent 请求。截断参数段落还要求该请求包含 `shell` 工具；回读段落要求 `read` 工具。
 - 无效值会回退默认值，并在日志中留下 `[command.window]` 警告。
-- 该段落要求模型用 `read`（`offset`/`limit`，单次最多 2000 行）继续读取保存的输出文件，而不是重跑命令。读取工作区外的文件可能触发目录授权确认。
-- 该段落会给每次主请求增加固定数量的输入 token。
+- 截断参数段落要求模型传 `tail`、`head`、`lines` 或 `max_bytes`，而不是把命令接到 `| head` / `| tail`：管道会隐藏总行数与保存路径，还可能提前终止命令。`grep` 等内容过滤仍由命令自身完成。
+- 回读段落要求模型用 `read`（`offset`/`limit`，单次最多 2000 行）继续读取保存的输出文件，而不是重跑命令。读取工作区外的文件可能触发目录授权确认。
+- 每段提示都会给每次主请求增加固定数量的输入 token。
 
 ## 用法
 
@@ -97,6 +102,8 @@ OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果克隆�
 | `head` | 整数 ≥ 0 | 返回最前 N 行。 |
 | `lines` | `{ start, end? }` | 返回 1 起始、包含两端的行区间。省略 `end` 表示读到末尾。 |
 | `max_bytes` | 整数 1–5242880 | 窗口正文的 UTF-8 字节硬上限，默认 204800。 |
+
+要限制返回量，请传这些参数，不要把命令接到 `| head` 或 `| tail`：管道会隐藏总行数与保存路径，还可能提前终止命令。按内容过滤（例如 `grep`）仍由命令自身完成。
 
 规则：
 
@@ -173,7 +180,7 @@ pnpm check   # tsc --noEmit && vitest run
 | --- | --- |
 | `src/index.ts` | 插件接线：选项、schema 与描述变换、系统提示词注入、`execute.after` hook。 |
 | `src/options.ts` | 插件选项校验与默认值。 |
-| `src/prompt.ts` | 回读段落与幂等的 system part 注入。 |
+| `src/prompt.ts` | 截断参数段落、回读段落，以及幂等的 system part 注入。 |
 | `src/schema.ts` | 替换后的 `shell` input schema 与追加描述。 |
 | `src/window.ts` | 参数解析与 marker 渲染。 |
 | `src/scan.ts` | 带字节上限的流式文件/文本扫描。 |
@@ -189,4 +196,5 @@ pnpm check   # tsc --noEmit && vitest run
 6. 把 `lines` 与 `tail` 组合。结果必须以 `[window error: ...]` 开头，并保留默认预览。
 7. 用 `{"background": true, "tail": 1}` 启动 `sleep 5`。运行中的结果必须保持不变。
 8. 用 `{"tail": 3}` 执行 `seq 1 200000`，然后要求模型展示另一段。模型必须用 `read` 工具读取报告的文件，而不是重跑命令。
-9. 检查 `~/.local/share/opencode/log/opencode.log` 是否有 `[command.window]` 警告。
+9. 要求模型查看一条大段输出的命令。模型必须传 `tail`、`head` 或 `lines`，而不是把命令接到 `head` 或 `tail`。然后把 `windowHint` 设为 `false` 并重新加载，确认该段落不再注入。
+10. 检查 `~/.local/share/opencode/log/opencode.log` 是否有 `[command.window]` 警告。

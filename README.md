@@ -9,7 +9,7 @@
 
 An unofficial OpenCode V2 server plugin that gives the built-in `shell` tool explicit output windows: `tail`, `head`, `lines`, and `max_bytes`.
 
-The default shell tool keeps only the end of large output and saves the rest to a file. Piping a command through `head` or `tail` hides the total line count and the saved path. This plugin lets the model ask for the range it actually needs, after the command has run, without rerunning it.
+The default shell tool keeps only the end of large output and saves the rest to a file. Piping a command through `head` or `tail` hides the total line count and the saved path. This plugin lets the model ask for the range it actually needs, after the command has run, without rerunning it, and by default tells the model to use those parameters instead of piping.
 
 ## Requirements
 
@@ -53,7 +53,7 @@ OpenCode loads directories under a config location's `plugins/` folder. If you k
 
 ## Configuration
 
-The read-back prompt is on by default. Change it by declaring the plugin in `opencode.json(c)` with an `options` object:
+Both system prompt paragraphs are on by default. Change them by declaring the plugin in `opencode.json(c)` with an `options` object:
 
 ```jsonc
 {
@@ -61,6 +61,8 @@ The read-back prompt is on by default. Change it by declaring the plugin in `ope
     {
       "package": "@o0kam1/opencode-command-window",
       "options": {
+        "windowHint": true,
+        "windowHintText": "Limit output with the shell window parameters instead of piping through head or tail.",
         "readBack": true,
         "readBackText": "Saved shell output is in the reported file; read it instead of rerunning the command."
       }
@@ -71,16 +73,19 @@ The read-back prompt is on by default. Change it by declaring the plugin in `ope
 
 | Option | Type | Meaning |
 | --- | --- | --- |
+| `windowHint` | boolean | Inject the window-parameter paragraph into the system prompt. Defaults to `true`. |
+| `windowHintText` | non-empty string | Replace the built-in window-parameter paragraph. |
 | `readBack` | boolean | Inject the read-back paragraph into the system prompt. Defaults to `true`. |
-| `readBackText` | non-empty string | Replace the built-in English paragraph. |
+| `readBackText` | non-empty string | Replace the built-in read-back paragraph. |
 
 Notes:
 
 - Options only come from a `plugins` entry. A plugin discovered under a config location's `plugins/` folder receives empty options; declaring the same package or absolute directory in `plugins` supplies options and replaces the discovered entry.
-- The paragraph is only injected when the `read` tool is available to the request, and only into primary agent requests.
+- Both paragraphs are only injected into primary agent requests. The window paragraph also needs the `shell` tool in that request; the read-back paragraph needs the `read` tool.
 - Invalid values fall back to their defaults and log a `[command.window]` warning.
-- The paragraph tells the model to continue reading a saved output file with `read` (`offset`/`limit`, at most 2000 lines per call) instead of rerunning the command. Reading a file outside the workspace can ask for directory approval.
-- The paragraph adds a fixed amount of input tokens to every primary request.
+- The window paragraph tells the model to pass `tail`, `head`, `lines`, or `max_bytes` instead of appending `| head` or `| tail` to the command, because piping hides the total line count and the saved path and can stop the command early. Content filters such as `grep` still belong in the command.
+- The read-back paragraph tells the model to continue reading a saved output file with `read` (`offset`/`limit`, at most 2000 lines per call) instead of rerunning the command. Reading a file outside the workspace can ask for directory approval.
+- Each paragraph adds a fixed amount of input tokens to every primary request.
 
 ## Usage
 
@@ -100,6 +105,8 @@ Call `shell` as usual and add one window parameter:
 | `head` | integer ≥ 0 | Return the first N lines. |
 | `lines` | `{ start, end? }` | Return the 1-based inclusive range. Omit `end` to read to the end. |
 | `max_bytes` | integer 1–5242880 | Hard cap on the UTF-8 bytes of the window body. Defaults to 204800. |
+
+To limit how much output comes back, pass these parameters instead of appending `| head` or `| tail` to the command: piping hides the total line count and the saved path, and can stop the command early. Filtering by content (for example `grep`) still belongs in the command.
 
 Rules:
 
@@ -176,7 +183,7 @@ pnpm check   # tsc --noEmit && vitest run
 | --- | --- |
 | `src/index.ts` | Plugin wiring: options, schema and description transforms, system prompt injection, `execute.after` hook. |
 | `src/options.ts` | Plugin option validation and defaults. |
-| `src/prompt.ts` | Read-back paragraph and idempotent system part injection. |
+| `src/prompt.ts` | Window-parameter and read-back paragraphs, plus idempotent system part injection. |
 | `src/schema.ts` | Replacement `shell` input schema and the appended description. |
 | `src/window.ts` | Parameter parsing and marker rendering. |
 | `src/scan.ts` | Streaming file and text scans with byte caps. |
@@ -192,4 +199,5 @@ pnpm check   # tsc --noEmit && vitest run
 6. Combine `lines` with `tail`. The result must start with `[window error: ...]` and keep the default preview.
 7. Start `sleep 5` with `{"background": true, "tail": 1}`. The running result must be untouched.
 8. Run `seq 1 200000` with `{"tail": 3}` and then ask the model to show another range. It must read the reported file with the `read` tool instead of rerunning the command.
-9. Check `~/.local/share/opencode/log/opencode.log` for `[command.window]` warnings.
+9. Ask the model to inspect a command that produces large output. It must pass `tail`, `head`, or `lines` instead of piping the command through `head` or `tail`. Then set `windowHint` to `false`, reload, and confirm the paragraph is no longer injected.
+10. Check `~/.local/share/opencode/log/opencode.log` for `[command.window]` warnings.

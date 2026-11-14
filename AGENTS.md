@@ -16,12 +16,15 @@
 
 - 在 `ctx.tool.transform` 中给内置 `shell` 工具补上 `tail`、`head`、`lines`、`max_bytes` 参数；
 - 在 `ctx.tool.hook("execute.after")` 中按模型声明的范围重算返回内容；
+- 在 `ctx.session.hook("context")` 中向主 Agent 请求注入两段系统提示词：用窗口参数限制输出、回读保存文件；
 - 不执行命令、不改写命令、不接管权限；不传窗口参数时结果与安装前逐字节一致。
 
 主要文件：
 
 ```text
-src/index.ts    Plugin.define 接线：schema/描述变换 + execute.after hook
+src/index.ts    Plugin.define 接线：选项、schema/描述变换、系统提示词注入、execute.after hook
+src/options.ts  插件选项校验与默认值
+src/prompt.ts   截断参数与回读段落、幂等 system part 注入
 src/schema.ts   shell 的新 input JSON Schema 与追加描述
 src/window.ts   参数解析、校验、marker 渲染（纯函数）
 src/scan.ts     文件/内联文本的流式扫描
@@ -55,6 +58,7 @@ src/apply.ts    把窗口应用到 execute.after 事件
 - 2026-11-15 在同一方式搭建的临时项目 `/var/tmp/opencode/verify-cw` 中核实回读路径：`seq 1 200000` + `tail: 3` 返回 marker 与保存路径后，模型用 `read`（`offset`/`limit`）读取保存文件的 1000–1005 行并正确回答第 1001、1003 行，没有重跑命令（命令用一次性 guard 文件保证重跑必然失败）。
 - 2026-11-15 从 npm 安装真实产物（`@o0kam1/opencode-command-window@0.1.0`）后，在真实会话中执行 `seq 1 200000` + `{"head":2,"tail":2}`，返回 `[... 199996 lines omitted ...]` 占位与 `[showing lines 1-2 and 199999-200000 of 200000 (head 2, tail 2); full output saved to ...]`，日志无 `[command.window]` 警告。
 - 自定义 `readBack` / `readBackText` 未能在真实会话验证：该环境向临时 `opencode.json` 写入被安全策略 `secret.cli.opencode.config` 拦截；选项解析与注入由单元测试覆盖。
+- 2026-11-15 新增的 `windowHint` / `windowHintText` 段落尚未在真实会话验证；两段提示的注入顺序、独立开关与幂等由单元测试覆盖。
 
 ## 提交前自检
 
@@ -72,7 +76,7 @@ CI（`.github/workflows/ci.yml`）在 push 到 `main` 与 PR 时跑同一组命�
 - `Tool.Result` 的字段是 `readonly`，替换结果必须整体重新赋值 `event.result = { ...event.result, ... }`，不能逐字段改写。
 - `shell` 的 `content` 除正文外还可能有退出码/超时提示；窗口化只能替换正文 part，其余 part 必须保留。
 - marker 里的 `full output saved to <path>` 是既有消费者依赖的短语，不得改写。
-- 回读提示只注入 `context` hook（主 Agent 请求）；`compaction` 与 `generate` 只同步工具描述。幂等靠 system part 的 `metadata` 判断，不靠文本匹配。
+- 截断参数提示与回读提示都只注入 `context` hook（主 Agent 请求）；`compaction` 与 `generate` 只同步工具描述。两段提示各自用 system part 的 `metadata.kind`（`window-hint` / `read-back`）判断幂等，不靠文本匹配。
 - 插件选项只来自 `opencode.json(c)` 的 `plugins` 条目 `options`；`plugins/` 目录自动发现拿到的是 `{}`。无效值回退默认并告警，绝不抛异常。
 - 不实现 `grep` 过滤；需要过滤时由命令自身管道完成。
 - 窗口扫描预算 5 秒；内存占用以 `max_bytes` 为上界，`tail` 使用环形缓冲。

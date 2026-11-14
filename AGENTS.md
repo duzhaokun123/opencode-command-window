@@ -6,7 +6,7 @@
 
 - 规范仓库：<https://git.o0kam1.dev/HumanlessCode/opencode-command-window>（即 `origin`）。
 - GitHub 仓库 <https://github.com/duzhaokun123/opencode-command-window> 是它的镜像：代码改动与 pull request 提交到规范仓库。镜像的 `main` 与 `v*` tag 由 `.gitea/workflows/mirror.yml` 自动推送（细节见 `docs/release.md`）；GitHub 另外承载必须在那边维护的自动化（Dependabot 依赖更新、镜像上的 CI check），其 PR 仅作更新提示，GitHub 的 issue 可用于提问与讨论。
-- npm 包名是 `@o0kam1/opencode-command-window`，发布账号为 `o0kam1`。`repository` 指向 GitHub 镜像，只用于 npm 页面上的仓库链接；`homepage` 指向规范仓库，`bugs` 指向 GitHub issues；tag 与 release 只在规范仓库创建。
+- npm 包名是 `@o0kam1/opencode-command-window`，发布账号为 `o0kam1`。`repository` 指向 GitHub 镜像，因为 npm 的可信发布与 provenance 要求它与发布来源仓库一致；`homepage` 指向规范仓库，`bugs` 指向 GitHub issues；tag 与 release 只在规范仓库创建。
 - 修改 `README.md` / `README.zh.md` 时保留顶部的镜像声明。
 - 依赖更新由 GitHub 镜像上的 Dependabot 负责，配置在 `.github/dependabot.yml`：`npm` 生态覆盖 `package.json` 与 `pnpm-lock.yaml`，`github-actions` 生态覆盖 workflow 中的 action 版本；每周检查一次，minor 与 patch 合并成一个 PR，major 单独开 PR。Dependabot 只运行在 GitHub 侧，它的 PR 仅作为更新提示，实际改动仍在规范仓库完成并推送。
 
@@ -41,7 +41,7 @@ src/apply.ts    把窗口应用到 execute.after 事件
 
 ## 发布
 
-具体流程只维护在 `docs/release.md`，本节不复述。agent 只在用户明确要求时参与发版准备，且不得 push、打 tag、创建 release 或触发发布。
+具体流程只维护在 `docs/release.md`，本节不复述。发布由 GitHub 镜像上的 `.github/workflows/release.yml` 用 npm 可信发布（OIDC）完成：tag 经 `.gitea/workflows/mirror.yml` 同步到镜像后触发。agent 只在用户明确要求时参与发版准备，且不得 push、打 tag、创建 release 或触发发布。
 
 ## 已验证行为
 
@@ -53,6 +53,7 @@ src/apply.ts    把窗口应用到 execute.after 事件
 - 保存文件的实际路径格式是 `~/.local/share/opencode/shell/<hash>/sh_<id>.out`。
 - `metadata.window` 与 `metadata.truncated` 出现在工具结果 metadata 中，日志无 `[command.window]` 警告。
 - 2026-11-15 在同一方式搭建的临时项目 `/var/tmp/opencode/verify-cw` 中核实回读路径：`seq 1 200000` + `tail: 3` 返回 marker 与保存路径后，模型用 `read`（`offset`/`limit`）读取保存文件的 1000–1005 行并正确回答第 1001、1003 行，没有重跑命令（命令用一次性 guard 文件保证重跑必然失败）。
+- 2026-11-15 从 npm 安装真实产物（`@o0kam1/opencode-command-window@0.1.0`）后，在真实会话中执行 `seq 1 200000` + `{"head":2,"tail":2}`，返回 `[... 199996 lines omitted ...]` 占位与 `[showing lines 1-2 and 199999-200000 of 200000 (head 2, tail 2); full output saved to ...]`，日志无 `[command.window]` 警告。
 - 自定义 `readBack` / `readBackText` 未能在真实会话验证：该环境向临时 `opencode.json` 写入被安全策略 `secret.cli.opencode.config` 拦截；选项解析与注入由单元测试覆盖。
 
 ## 提交前自检

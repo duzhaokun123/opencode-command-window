@@ -44,7 +44,7 @@ src/apply.ts    把窗口应用到 execute.after 事件
 
 ## 发布
 
-具体流程只维护在 `docs/release.md`，本节不复述。发布由 GitHub 镜像上的 `.github/workflows/release.yml` 用 npm 可信发布（OIDC）完成：tag 经 `.gitea/workflows/mirror.yml` 同步到镜像后触发。agent 只在用户明确要求时参与发版准备，且不得 push、打 tag、创建 release 或触发发布。
+具体流程只维护在 `docs/release.md`，本节不复述。发布由 GitHub 镜像上的 `.github/workflows/release.yml` 用 npm 可信发布（OIDC）完成：tag 经 `.gitea/workflows/mirror.yml` 同步到镜像后触发。agent 参与发版的门槛与远程限制见「工作纪律」一节：用户明确要求时可以推送 `main` 到 `origin`、创建并推送 tag、创建 release，但任何情况下都不得向 `github` 远程推送。
 
 ## 已验证行为
 

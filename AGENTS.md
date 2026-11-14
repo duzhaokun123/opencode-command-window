@@ -30,6 +30,16 @@ src/apply.ts    把窗口应用到 execute.after 事件
 - 不允许把多个步骤攒到会话末尾一次性提交。
 - 未获用户明确要求时，不要 `git push`、创建标签、创建 release 或触发发布。
 
+## 已验证行为
+
+2026-11-15 在真实 OpenCode v2.3.0 会话（临时项目 `.opencode/plugins/command-window` → 本仓库软链）中核实：
+
+- 插件从 `src/index.ts` 加载，`ctx.tool.transform` 生效，模型可直接传 `tail`/`head`。
+- `seq 1 100` + `tail: 3` → 正文末尾 `[showing lines 98-100 of 100 (tail 3); full output was not saved because the result was not truncated]`。
+- `seq 1 200000` + `head: 2, tail: 2` → `[showing lines 1-2 and 199999-200000 of 200000 (head 2, tail 2); full output saved to /home/<user>/.local/share/opencode/shell/<hash>/sh_<id>.out]`。
+- 保存文件的实际路径格式是 `~/.local/share/opencode/shell/<hash>/sh_<id>.out`。
+- `metadata.window` 与 `metadata.truncated` 出现在工具结果 metadata 中，日志无 `[command.window]` 警告。
+
 ## 提交前自检
 
 ```sh

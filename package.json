@@ -1,20 +1,44 @@
 {
-	"name": "opencode-command-window",
+	"name": "@o0kam1/opencode-command-window",
 	"version": "0.1.0",
-	"private": true,
+	"description": "OpenCode V2 plugin that gives the built-in shell tool explicit tail, head, lines and max_bytes output windows.",
 	"type": "module",
+	"license": "MIT",
+	"author": "o0kam1",
+	"keywords": [
+		"opencode",
+		"opencode-plugin",
+		"plugin",
+		"shell",
+		"output",
+		"tail",
+		"head"
+	],
 	"exports": {
 		".": "./src/index.ts"
 	},
+	"files": [
+		"src/**/*.ts",
+		"!src/**/*.test.ts",
+		"README.zh.md"
+	],
 	"repository": {
 		"type": "git",
-		"url": "git+https://git.o0kam1.dev/HumanlessCode/opencode-command-window.git"
+		"url": "git+https://github.com/duzhaokun123/opencode-command-window.git"
 	},
 	"homepage": "https://git.o0kam1.dev/HumanlessCode/opencode-command-window",
+	"bugs": {
+		"url": "https://github.com/duzhaokun123/opencode-command-window/issues"
+	},
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org"
+	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run",
-		"check": "pnpm typecheck && pnpm test"
+		"check": "pnpm typecheck && pnpm test",
+		"prepublishOnly": "pnpm check"
 	},
 	"dependencies": {
 		"@opencode/plugin": "^2.3.0"

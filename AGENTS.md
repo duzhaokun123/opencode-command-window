@@ -6,7 +6,7 @@
 
 - 规范仓库：<https://git.o0kam1.dev/HumanlessCode/opencode-command-window>（即 `origin`）。
 - GitHub 仓库 <https://github.com/duzhaokun123/opencode-command-window> 是它的镜像：代码改动与 pull request 提交到规范仓库，GitHub 的 issue 可用于提问与讨论。
-- npm 包名是 `@o0kam1/opencode-command-window`，发布账号为 `o0kam1`。`package.json` 的 `repository` 指向 GitHub 镜像，因为 npm 的可信发布与 provenance 要求该字段与发布来源仓库一致；`homepage` 与 release 仍以规范仓库为准。
+- npm 包名是 `@o0kam1/opencode-command-window`，发布账号为 `o0kam1`。`repository` 指向规范仓库；`homepage` 与 release 同样以规范仓库为准。
 - 修改 `README.md` / `README.zh.md` 时保留顶部的镜像声明。
 - 依赖更新由 GitHub 镜像上的 Dependabot 负责，配置在 `.github/dependabot.yml`：`npm` 生态覆盖 `package.json` 与 `pnpm-lock.yaml`，`github-actions` 生态覆盖 workflow 中的 action 版本；每周检查一次，minor 与 patch 合并成一个 PR，major 单独开 PR。Dependabot 只运行在 GitHub 侧，它的 PR 仅作为更新提示，实际改动仍在规范仓库完成并推送。
 
@@ -41,11 +41,10 @@ src/apply.ts    把窗口应用到 execute.after 事件
 
 ## 发布
 
-- 版本号在 `package.json`，tag 形如 `v0.1.0`，两者必须一致；`.github/workflows/release.yml` 会先校验再发布。
-- 发布通道是 GitHub 镜像上的 Actions：`v*` tag 推到镜像后，workflow 跑 `pnpm check`，用 npm 可信发布（`id-token: write`，不传 token）发布并自动附带 provenance，最后用 `gh release create --generate-notes` 创建 GitHub Release。tag 由用户推送，agent 不推 `github` 远程。
-- npm 侧可信发布配置命令是 `npm trust github @o0kam1/opencode-command-window --file release.yml --repo duzhaokun123/opencode-command-window --allow-publish`，要求 npm ≥ 11.15 与账号 2FA，且包必须已经存在于 registry 才能配置。
-- `v0.1.0` 是 bootstrap 例外：可信发布建立之前由本地 `npm publish` 发布，因此该版本没有 provenance；`v0.1.0` 的 workflow 会在 publish 步骤因版本已存在而失败，GitHub 与 Gitea 的 0.1.0 release 手动创建。从 `v0.1.1` 起不再需要这个例外。
-- Gitea 是规范仓库，但它的 release 需要手动创建；只有 GitHub 的 release 由 workflow 生成。
+- 版本号在 `package.json`，tag 形如 `v0.1.0`，两者必须一致。tag 只推规范仓库；GitHub 镜像不接收 tag，也不参与发布。
+- 发布由用户在本机执行 `npm publish`（浏览器 2FA）：`publishConfig` 固定 `https://registry.npmjs.org` 与 public access，`prepublishOnly` 会先跑 `pnpm check`。这样发布的包没有 provenance，因为 npm 只从 GitHub Actions、GitLab CI 与 CircleCI 生成该证明。
+- 规范仓库没有启用 Actions（Gitea `has_actions = false`）；GitHub 镜像上的 `.github/workflows/ci.yml` 只在用户同步镜像时做 check，不承担发布。
+- Gitea 与 GitHub 的 release 都由用户手动创建。
 - 发布前检查 `pnpm check`、`npm pack --dry-run` 的文件清单（只应包含非测试的 `src/*.ts`、两份 README、`LICENSE`、`package.json`），并用 tarball 装进临时项目跑一次真实会话。
 
 ## 已验证行为

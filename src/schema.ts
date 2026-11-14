@@ -54,7 +54,7 @@ export const INPUT_SCHEMA: Record<string, unknown> = {
 			type: "integer",
 			minimum: 1,
 			description:
-				"Hard cap on the UTF-8 bytes returned for this call. Defaults to 204800, maximum 5242880. Raise it only when you really need a larger window.",
+				"Hard cap on the UTF-8 bytes of the window body for this call. Defaults to 204800, maximum 5242880. Raise it only when you really need a larger window.",
 		},
 	},
 	required: ["command"],

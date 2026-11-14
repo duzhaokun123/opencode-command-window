@@ -45,7 +45,7 @@ Call `shell` as usual and add one window parameter:
 | `tail` | integer ≥ 0 | Return the last N lines. |
 | `head` | integer ≥ 0 | Return the first N lines. |
 | `lines` | `{ start, end? }` | Return the 1-based inclusive range. Omit `end` to read to the end. |
-| `max_bytes` | integer 1–5242880 | Hard cap on returned UTF-8 bytes. Defaults to 204800. |
+| `max_bytes` | integer 1–5242880 | Hard cap on the UTF-8 bytes of the window body. Defaults to 204800. |
 
 Rules:
 

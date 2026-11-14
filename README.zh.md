@@ -1,5 +1,9 @@
 # opencode-command-window
 
+> GitHub 仓库 <https://github.com/duzhaokun123/opencode-command-window> 是镜像仓库。
+> 规范仓库为 <https://git.o0kam1.dev/HumanlessCode/opencode-command-window>，代码改动与
+> pull request 请提交到规范仓库；GitHub 的 issue 可用于提问与讨论。
+
 一个 OpenCode V2 服务端插件，为内置 `shell` 工具补上显式输出窗口：`tail`、`head`、`lines`、`max_bytes`。
 
 OpenCode 默认只保留大段输出的末尾，并把完整输出保存到文件。如果命令自己接 `head`/`tail`，返回里就看不到总行数和保存路径。这个插件让模型在命令执行完之后，直接指定真正需要的那一段，而不必重跑命令。

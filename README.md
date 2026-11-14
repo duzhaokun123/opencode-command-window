@@ -1,5 +1,12 @@
 # opencode-command-window
 
+> The GitHub repository
+> <https://github.com/duzhaokun123/opencode-command-window> is a mirror. The
+> canonical repository is
+> <https://git.o0kam1.dev/HumanlessCode/opencode-command-window>; code changes and
+> pull requests belong there. GitHub issues are welcome for questions and
+> discussion.
+
 An OpenCode V2 server plugin that gives the built-in `shell` tool explicit output windows: `tail`, `head`, `lines`, and `max_bytes`.
 
 The default shell tool keeps only the end of large output and saves the rest to a file. Piping a command through `head` or `tail` hides the total line count and the saved path. This plugin lets the model ask for the range it actually needs, after the command has run, without rerunning it.

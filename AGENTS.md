@@ -2,6 +2,12 @@
 
 本文件是本仓库的常驻 agent 指令，跨会话生效（新会话打开本仓库时自动加载）。它不绑定任何具体 CLI、harness 或模型。
 
+## 仓库位置
+
+- 规范仓库：<https://git.o0kam1.dev/HumanlessCode/opencode-command-window>（即 `origin`）。
+- GitHub 仓库 <https://github.com/duzhaokun123/opencode-command-window> 是它的镜像：代码改动与 pull request 提交到规范仓库，GitHub 的 issue 可用于提问与讨论。
+- 修改 `README.md` / `README.zh.md` 时保留顶部的镜像声明。
+
 ## 项目说明
 
 `opencode-command-window` 是一个 OpenCode V2 服务端插件（插件 id `command.window`）：

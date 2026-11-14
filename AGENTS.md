@@ -39,6 +39,8 @@ src/apply.ts    把窗口应用到 execute.after 事件
 - `seq 1 200000` + `head: 2, tail: 2` → `[showing lines 1-2 and 199999-200000 of 200000 (head 2, tail 2); full output saved to /home/<user>/.local/share/opencode/shell/<hash>/sh_<id>.out]`。
 - 保存文件的实际路径格式是 `~/.local/share/opencode/shell/<hash>/sh_<id>.out`。
 - `metadata.window` 与 `metadata.truncated` 出现在工具结果 metadata 中，日志无 `[command.window]` 警告。
+- 2026-11-15 在同一方式搭建的临时项目 `/var/tmp/opencode/verify-cw` 中核实回读路径：`seq 1 200000` + `tail: 3` 返回 marker 与保存路径后，模型用 `read`（`offset`/`limit`）读取保存文件的 1000–1005 行并正确回答第 1001、1003 行，没有重跑命令（命令用一次性 guard 文件保证重跑必然失败）。
+- 自定义 `readBack` / `readBackText` 未能在真实会话验证：该环境向临时 `opencode.json` 写入被安全策略 `secret.cli.opencode.config` 拦截；选项解析与注入由单元测试覆盖。
 
 ## 提交前自检
 
@@ -56,6 +58,8 @@ CI（`.github/workflows/ci.yml`）在 push 到 `main` 与 PR 时跑同一组命�
 - `Tool.Result` 的字段是 `readonly`，替换结果必须整体重新赋值 `event.result = { ...event.result, ... }`，不能逐字段改写。
 - `shell` 的 `content` 除正文外还可能有退出码/超时提示；窗口化只能替换正文 part，其余 part 必须保留。
 - marker 里的 `full output saved to <path>` 是既有消费者依赖的短语，不得改写。
+- 回读提示只注入 `context` hook（主 Agent 请求）；`compaction` 与 `generate` 只同步工具描述。幂等靠 system part 的 `metadata` 判断，不靠文本匹配。
+- 插件选项只来自 `opencode.json(c)` 的 `plugins` 条目 `options`；`plugins/` 目录自动发现拿到的是 `{}`。无效值回退默认并告警，绝不抛异常。
 - 不实现 `grep` 过滤；需要过滤时由命令自身管道完成。
 - 窗口扫描预算 5 秒；内存占用以 `max_bytes` 为上界，`tail` 使用环形缓冲。
 - 只用 `node:` 内建模块；`@opencode/plugin` 仅用于类型与 `Plugin.define`。

@@ -6,12 +6,13 @@
 
 - 规范仓库：<https://git.o0kam1.dev/HumanlessCode/opencode-command-window>（即 `origin`）。
 - GitHub 仓库 <https://github.com/duzhaokun123/opencode-command-window> 是它的镜像：代码改动与 pull request 提交到规范仓库，GitHub 的 issue 可用于提问与讨论。
+- npm 包名是 `@o0kam1/opencode-command-window`，发布账号为 `o0kam1`。`package.json` 的 `repository` 指向 GitHub 镜像，因为 npm 的可信发布与 provenance 要求该字段与发布来源仓库一致；`homepage` 与 release 仍以规范仓库为准。
 - 修改 `README.md` / `README.zh.md` 时保留顶部的镜像声明。
 - 依赖更新由 GitHub 镜像上的 Dependabot 负责，配置在 `.github/dependabot.yml`：`npm` 生态覆盖 `package.json` 与 `pnpm-lock.yaml`，`github-actions` 生态覆盖 workflow 中的 action 版本；每周检查一次，minor 与 patch 合并成一个 PR，major 单独开 PR。Dependabot 只运行在 GitHub 侧，它的 PR 仅作为更新提示，实际改动仍在规范仓库完成并推送。
 
 ## 项目说明
 
-`opencode-command-window` 是一个 OpenCode V2 服务端插件（插件 id `command.window`）：
+`opencode-command-window` 是一个 OpenCode V2 服务端插件（插件 id `command.window`，npm 包 `@o0kam1/opencode-command-window`）：
 
 - 在 `ctx.tool.transform` 中给内置 `shell` 工具补上 `tail`、`head`、`lines`、`max_bytes` 参数；
 - 在 `ctx.tool.hook("execute.after")` 中按模型声明的范围重算返回内容；
@@ -36,6 +37,15 @@ src/apply.ts    把窗口应用到 execute.after 事件
 - 模型身份写在提交作者：`git commit --author "DeepSeek Flash <deepseek-flash@llm.invalid>"`；Agent 应用身份写在正文末尾的 `Co-authored-by` 尾注（实际运行版本，如 `opencode v2.3.0`，不写邮箱）。
 - 不允许把多个步骤攒到会话末尾一次性提交。
 - 未获用户明确要求时，不要 `git push`、创建标签、创建 release 或触发发布。
+
+## 发布
+
+- 版本号在 `package.json`，tag 形如 `v0.1.0`，两者必须一致；`.github/workflows/release.yml` 会先校验再发布。
+- 发布通道是 GitHub 镜像上的 Actions：推送 `v*` tag 后，workflow 跑 `pnpm check`，用 npm 可信发布（`id-token: write`，不传 token）发布并自动附带 provenance，最后用 `gh release create --generate-notes` 创建 GitHub Release。
+- npm 侧可信发布配置命令是 `npm trust github @o0kam1/opencode-command-window --file release.yml --repo duzhaokun123/opencode-command-window --allow-publish`，要求 npm ≥ 11.15 与账号 2FA，且包必须已经存在于 registry 才能配置。
+- `v0.1.0` 是 bootstrap 例外：可信发布建立之前由本地 `npm publish` 发布，因此该版本没有 provenance；`v0.1.0` 的 workflow 会在 publish 步骤因版本已存在而失败，GitHub 与 Gitea 的 0.1.0 release 手动创建。从 `v0.1.1` 起不再需要这个例外。
+- Gitea 是规范仓库，但它的 release 需要手动创建；只有 GitHub 的 release 由 workflow 生成。
+- 发布前检查 `pnpm check`、`npm pack --dry-run` 的文件清单（只应包含非测试的 `src/*.ts`、两份 README、`LICENSE`、`package.json`），并用 tarball 装进临时项目跑一次真实会话。
 
 ## 已验证行为
 
@@ -76,4 +86,4 @@ CI（`.github/workflows/ci.yml`）在 push 到 `main` 与 PR 时跑同一组命�
 ## 文档维护
 
 - `README.md`（英文）与 `README.zh.md`（中文）描述安装、参数、marker 与限制；行为变更时同步更新。
-- LICENSE 暂未添加；署名确定后补 MIT 文本。
+- `LICENSE` 为 MIT，版权人 duzhaokun123（2026）。发布流程或包元数据变化时，同步 README 的 Releases 小节与本文件的“发布”小节。

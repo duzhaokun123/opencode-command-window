@@ -25,8 +25,9 @@
 `.gitea/workflows/release.yml` 在 `v*` tag 推送到 `origin` 后运行，也可以用 `workflow_dispatch` 指定一个已存在的 tag 手动补建或重跑。
 
 - 使用 Gitea 自动注入的 `GITEA_TOKEN`（`secrets.GITEA_TOKEN`），并声明 `releases: write`；不新增 secret。以 `GITEA_` 开头的名称不允许用户定义，这个 token 由 job 自动注入。
-- 与镜像工作流一样不使用 `uses:`；job 在 `host` runner 上匿名 clone 公开仓库，再调用 API 创建 release。runner 机器已装 node，用来读取 `package.json` 与构造 JSON payload；这个工作流不需要 pnpm，也不跑 `pnpm check`。
-- 创建前校验 tag 形如 `v<major>.<minor>.<patch>[-pre][+build]`，并且 `v<package.json version>` 与 tag 完全一致。
+- 第一个 step 在 `host` runner 上匿名 clone 公开仓库，校验 tag 形如 `v<major>.<minor>.<patch>[-pre][+build]` 并且 `v<package.json version>` 与 tag 完全一致，然后生成 release 正文并写到 `$GITHUB_WORKSPACE/release-body.md`。
+- 第二个 step 用 `https://gitea.com/actions/gitea-release-action@v1` 创建或更新 release。这个 action 是社区项目 `akkuman/gitea-release-action` 的镜像（MIT），声明 `runs.using: node16`，依赖 runner 上的 node；runner 机器已装 node，因此这个工作流不需要 pnpm，也不跑 `pnpm check`。
+- 通过 `body_path` 传入正文、`tag_name` 与 `name` 传入 tag、`prerelease` 标记预发布；`token` 显式传入 `secrets.GITEA_TOKEN`，`server_url` 传入 `gitea.server_url`。
 - Release 标题与 tag 相同；正文列出自上一个 `v*` tag 以来的非合并 commit（`- 标题 (短哈希)`），仓库的第一个版本 tag 列出该 tag 的全部历史。tag 的版本核带 `-` 后缀（例如 `v0.2.0-rc.1`）时标记为 prerelease。
 - 已经存在同 tag 的 release 时更新标题、正文与 prerelease 标记，不会重复创建，因此重跑是幂等的。
 - 仓库的 Actions 权限若被设为 Restricted，需要在 Settings → Actions → General 允许 `releases` 写入；否则 `GITEA_TOKEN` 创建 release 会返回 403。

@@ -21,14 +21,14 @@ jobs:
   release:
     runs-on: host
     steps:
-      - name: Create or update the Gitea release
+      - name: Prepare the release
+        id: prepare
         shell: bash
         env:
-          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
-          API_URL: ${{ gitea.api_url }}
           REPOSITORY: ${{ gitea.repository }}
           REF_NAME: ${{ gitea.ref_name }}
           INPUT_TAG: ${{ inputs.tag }}
+          BODY_PATH: ${{ gitea.workspace }}/release-body.md
         run: |
           set -euo pipefail
 
@@ -75,52 +75,19 @@ jobs:
             *-*) prerelease=true ;;
           esac
 
-          TAG="$tag" BODY="$body" PRERELEASE="$prerelease" node -e '
-            const fs = require("node:fs");
-            fs.writeFileSync(process.argv[1], JSON.stringify({
-              tag_name: process.env.TAG,
-              name: process.env.TAG,
-              body: process.env.BODY,
-              prerelease: process.env.PRERELEASE === "true",
-              draft: false,
-            }));
-          ' "$work/payload.json"
+          printf '%s\n' "$body" > "$BODY_PATH"
+          {
+            echo "tag=$tag"
+            echo "prerelease=$prerelease"
+          } >> "$GITHUB_OUTPUT"
 
-          auth="Authorization: token ${GITEA_TOKEN}"
-          api="${API_URL}/repos/${REPOSITORY}/releases"
-
-          status="$(curl --silent --show-error --output "$work/existing.json" --write-out '%{http_code}' \
-            --header "$auth" "${api}/tags/${tag}")"
-          case "$status" in
-            200)
-              id="$(node -e '
-                const fs = require("node:fs");
-                process.stdout.write(String(JSON.parse(fs.readFileSync(process.argv[1], "utf8")).id));
-              ' "$work/existing.json")"
-              curl --silent --show-error --fail-with-body \
-                --request PATCH \
-                --header "$auth" \
-                --header 'Content-Type: application/json' \
-                --data-binary @"$work/payload.json" \
-                "${api}/${id}" > "$work/response.json"
-              ;;
-            404)
-              curl --silent --show-error --fail-with-body \
-                --request POST \
-                --header "$auth" \
-                --header 'Content-Type: application/json' \
-                --data-binary @"$work/payload.json" \
-                "$api" > "$work/response.json"
-              ;;
-            *)
-              cat "$work/existing.json" >&2
-              echo "unexpected status ${status} for ${api}/tags/${tag}" >&2
-              exit 1
-              ;;
-          esac
-
-          node -e '
-            const fs = require("node:fs");
-            const release = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-            console.log(`release ${release.tag_name}: ${release.html_url}`);
-          ' "$work/response.json"
+      - name: Create or update the Gitea release
+        uses: https://gitea.com/actions/gitea-release-action@v1
+        with:
+          server_url: ${{ gitea.server_url }}
+          token: ${{ secrets.GITEA_TOKEN }}
+          tag_name: ${{ steps.prepare.outputs.tag }}
+          name: ${{ steps.prepare.outputs.tag }}
+          body_path: ${{ gitea.workspace }}/release-body.md
+          prerelease: ${{ steps.prepare.outputs.prerelease }}
+          draft: false

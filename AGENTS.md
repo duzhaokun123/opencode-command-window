@@ -37,11 +37,12 @@ src/apply.ts    把窗口应用到 execute.after 事件
 - 模型身份写在提交作者：`git commit --author "DeepSeek Flash <deepseek-flash@llm.invalid>"`；Agent 应用身份写在正文末尾的 `Co-authored-by` 尾注（实际运行版本，如 `opencode v2.3.0`，不写邮箱）。
 - 不允许把多个步骤攒到会话末尾一次性提交。
 - 未获用户明确要求时，不要 `git push`、创建标签、创建 release 或触发发布。
+- **禁止向 `github` 远程推送任何内容**，包括 `main`、tag 与 force-push。GitHub 镜像的同步一律由用户执行；agent 对 `github` 远程只做读取与对照。
 
 ## 发布
 
 - 版本号在 `package.json`，tag 形如 `v0.1.0`，两者必须一致；`.github/workflows/release.yml` 会先校验再发布。
-- 发布通道是 GitHub 镜像上的 Actions：推送 `v*` tag 后，workflow 跑 `pnpm check`，用 npm 可信发布（`id-token: write`，不传 token）发布并自动附带 provenance，最后用 `gh release create --generate-notes` 创建 GitHub Release。
+- 发布通道是 GitHub 镜像上的 Actions：`v*` tag 推到镜像后，workflow 跑 `pnpm check`，用 npm 可信发布（`id-token: write`，不传 token）发布并自动附带 provenance，最后用 `gh release create --generate-notes` 创建 GitHub Release。tag 由用户推送，agent 不推 `github` 远程。
 - npm 侧可信发布配置命令是 `npm trust github @o0kam1/opencode-command-window --file release.yml --repo duzhaokun123/opencode-command-window --allow-publish`，要求 npm ≥ 11.15 与账号 2FA，且包必须已经存在于 registry 才能配置。
 - `v0.1.0` 是 bootstrap 例外：可信发布建立之前由本地 `npm publish` 发布，因此该版本没有 provenance；`v0.1.0` 的 workflow 会在 publish 步骤因版本已存在而失败，GitHub 与 Gitea 的 0.1.0 release 手动创建。从 `v0.1.1` 起不再需要这个例外。
 - Gitea 是规范仓库，但它的 release 需要手动创建；只有 GitHub 的 release 由 workflow 生成。

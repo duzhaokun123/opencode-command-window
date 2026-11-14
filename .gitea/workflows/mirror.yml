@@ -1,0 +1,43 @@
+name: mirror
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: mirror-github
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: host
+    steps:
+      - name: Push the default branch and tags to GitHub
+        shell: bash
+        env:
+          MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
+          REF: ${{ gitea.ref }}
+        run: |
+          set -euo pipefail
+          export GIT_TERMINAL_PROMPT=0
+
+          src="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+          dst="https://github.com/duzhaokun123/opencode-command-window.git"
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$MIRROR_TOKEN" | base64 | tr -d '\n')"
+
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+
+          git init --quiet "$work/repo"
+          cd "$work/repo"
+          git fetch --quiet --no-tags "$src" '+refs/heads/*:refs/remotes/src/*'
+          git fetch --quiet --no-tags "$src" '+refs/tags/*:refs/tags/*'
+
+          if [ "${REF#refs/tags/}" != "$REF" ]; then
+            git -c "http.https://github.com/.extraheader=$auth" push --quiet "$dst" "${REF}:${REF}"
+          else
+            git -c "http.https://github.com/.extraheader=$auth" push --quiet "$dst" \
+              'refs/remotes/src/main:refs/heads/main' 'refs/tags/*:refs/tags/*'
+          fi

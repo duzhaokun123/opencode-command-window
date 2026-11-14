@@ -6,6 +6,11 @@
 	"exports": {
 		".": "./src/index.ts"
 	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://git.o0kam1.dev/HumanlessCode/opencode-command-window.git"
+	},
+	"homepage": "https://git.o0kam1.dev/HumanlessCode/opencode-command-window",
 	"scripts": {
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run",

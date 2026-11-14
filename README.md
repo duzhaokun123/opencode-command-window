@@ -167,9 +167,9 @@ For a source clone, remove its directory (or its `plugins` entry) instead, then 
 
 ## Releases
 
-- Pushing a `v*` tag to the GitHub mirror runs `.github/workflows/release.yml`, which publishes to npm through npm trusted publishing and attaches a provenance attestation to each release it publishes.
-- `0.1.0` was published from a local checkout before trusted publishing existed, so that version has no provenance attestation.
-- `repository` in `package.json` points at the GitHub mirror because npm requires that field to match the source of a trusted publish. The canonical repository remains <https://git.o0kam1.dev/HumanlessCode/opencode-command-window>.
+- Versions are published to npm by hand from a checkout of the canonical repository: bump `version` in `package.json`, commit, tag `vX.Y.Z`, then run `npm publish`. `publishConfig` pins the public npm registry, and `prepublishOnly` runs `pnpm check` first.
+- Tags and releases stay on the canonical repository at <https://git.o0kam1.dev/HumanlessCode/opencode-command-window>. The GitHub mirror never receives tags, so it never publishes and never creates releases.
+- Packages published this way carry no provenance attestation, because npm only generates one from a supported cloud CI provider.
 
 ## Development
 

@@ -164,9 +164,9 @@ opencode plugin remove @o0kam1/opencode-command-window
 
 ## 发布
 
-- 向 GitHub 镜像推送 `v*` tag 会触发 `.github/workflows/release.yml`，它通过 npm 可信发布把包发到 npm，并给每个由它发布的版本附带 provenance 证明。
-- `0.1.0` 在配置可信发布之前由本地检出直接发布，因此这个版本没有 provenance 证明。
-- `package.json` 的 `repository` 指向 GitHub 镜像，因为 npm 要求该字段与可信发布的来源一致。规范仓库仍然是 <https://git.o0kam1.dev/HumanlessCode/opencode-command-window>。
+- 版本由人工从规范仓库的检出发布：修改 `package.json` 的 `version`、提交、打 `vX.Y.Z` tag，然后执行 `npm publish`。`publishConfig` 固定了公共 npm registry，`prepublishOnly` 会先跑 `pnpm check`。
+- tag 与 release 只留在规范仓库 <https://git.o0kam1.dev/HumanlessCode/opencode-command-window>。GitHub 镜像不接收 tag，因此它既不发布也不创建 release。
+- 用这种方式发布的 npm 包没有 provenance 证明，因为 npm 只会在受支持的云 CI 上生成该证明。
 
 ## 开发
 

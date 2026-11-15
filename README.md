@@ -163,6 +163,7 @@ Marker notes:
 - Ranges are line-based. `max_bytes` only caps the result; it cannot address a byte range.
 - The plugin does not clean up OpenCode's saved output files.
 - A window cannot recover output that OpenCode already discarded before saving a file.
+- The truncation parameters are not shown in the interface. The plugin has no TUI or GUI part because OpenCode v2.3.0 provides no renderer for a tool call row, so no client can label a call with the parameters the model chose. They appear only in the marker at the end of the returned text, and in `metadata.window` on the tool result; when the output is collapsed, the user must expand it to read them.
 
 ## Uninstall
 

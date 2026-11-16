@@ -75,6 +75,10 @@ src/pipe.ts     命令结尾 | head / | tail 管道的解析与改写（纯函�
   - 默认（无 `options`）：同一 `seq 1 100 | tail -n 3` → 只有 98/99/100 三行，无 marker，命令未被改写。
   - 日志出现 `msg="loading plugin" id=/home/o0kam1/…/opencode-command-window`（从 `src/index.ts` 加载），无 `[command.window]` 警告；仅有与插件无关的 opencode.ai console 401 WARN（不带插件的运行同样出现）。
   - 注意：`opencode run` 默认连到常驻的 `opencode serve --service` 后台进程（用的是启动它的那份配置）；验证必须加 `--standalone`，隔离用的 `XDG_CONFIG_HOME` 才会作用于本次运行。
+- 2026-11-16 在同一方式的真实会话中核实「拼接命令不改写」（临时项目 `/var/tmp/opencode/verify-cw-join-on` 与 `-on-plain`，同样用 `cw-pipe-xdg` 隔离、`--standalone --auto -m local2/deepseek-flash`，`pipeWindow: true`，提示词要求命令逐字执行并禁止窗口参数）：
+  - `cd /tmp && seq 1 100 | tail -n 3` → 只有 98/99/100 三行，无 marker；`cd /tmp; seq 1 100 | tail -n 3` 同样无 marker，命令里的管道保持原样。
+  - `seq 1 100 | tail -n 3` → 98–100 行加 `[showing lines 98-100 of 100 (tail 3); full output was not saved because the result was not truncated]`，单一命令的改写不受影响。
+  - 日志出现 `msg="loading plugin" id=/home/o0kam1/…/opencode-command-window`（从 `src/index.ts` 加载），无 `[command.window]` 警告。
 
 ## 提交前自检
 

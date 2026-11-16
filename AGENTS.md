@@ -39,7 +39,8 @@ src/pipe.ts     命令结尾 | head / | tail 管道的解析与改写（纯函�
 
 - 每完成一个独立、可验证的步骤（功能改动、清理、类型检查/测试通过、文档与配置更新等）就**立即 `git commit`**。
 - 提交信息遵循 conventional commit 风格（如 `feat:`、`fix:`、`docs:`、`refactor:`、`chore:`），并提供简洁正文。
-- 模型身份写在提交作者：`git commit --author "DeepSeek Flash <deepseek-flash@llm.invalid>"`；Agent 应用身份写在正文末尾的 `Co-authored-by` 尾注（实际运行版本，如 `opencode v2.3.0`，不写邮箱）。
+- 提交作者写模型身份：`git commit --author "<模型名> <模型id>@llm.invalid"`。模型名取人类可读名称（如 `DeepSeek Flash`），模型 id 取当前运行环境的模型 ID、不带 provider 前缀（如 `deepseek-flash`），两者都取自**当前正在执行这次提交的 agent/模型自身**，不要照搬别的模型的名字；邮箱固定为 `<模型id>@llm.invalid`（`.invalid` 为保留占位域名，不做投递）。
+- Agent 应用身份写在正文末尾的 `Co-authored-by` 尾注（实际运行版本，如 `opencode v2.3.0`，不写邮箱）。
 - 不允许把多个步骤攒到会话末尾一次性提交。
 - 未获用户明确要求时，不要 `git push`、创建标签、创建 release 或触发发布。
 - **禁止 agent 直接向 `github` 远程推送任何内容**，包括 `main`、tag 与 force-push。镜像同步只由 `.gitea/workflows/mirror.yml` 完成；agent 对 `github` 远程只做读取与对照。

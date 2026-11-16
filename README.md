@@ -61,6 +61,7 @@ Both system prompt paragraphs are on by default. Change them by declaring the pl
     {
       "package": "@o0kam1/opencode-command-window",
       "options": {
+        "pipeWindow": true,
         "windowHint": true,
         "windowHintText": "Limit output with the shell window parameters instead of piping through head or tail.",
         "readBack": true,
@@ -73,6 +74,7 @@ Both system prompt paragraphs are on by default. Change them by declaring the pl
 
 | Option | Type | Meaning |
 | --- | --- | --- |
+| `pipeWindow` | boolean | Rewrite a trailing `\| head`/`\| tail` pipe in the command into the `head`/`tail` window parameters before the command runs. Defaults to `false`. |
 | `windowHint` | boolean | Inject the window-parameter paragraph into the system prompt. Defaults to `true`. |
 | `windowHintText` | non-empty string | Replace the built-in window-parameter paragraph. |
 | `readBack` | boolean | Inject the read-back paragraph into the system prompt. Defaults to `true`. |
@@ -81,7 +83,7 @@ Both system prompt paragraphs are on by default. Change them by declaring the pl
 Notes:
 
 - Options only come from a `plugins` entry. A plugin discovered under a config location's `plugins/` folder receives empty options; declaring the same package or absolute directory in `plugins` supplies options and replaces the discovered entry.
-- Both paragraphs are only injected into primary agent requests. The window paragraph also needs the `shell` tool in that request; the read-back paragraph needs the `read` tool.
+- `pipeWindow` is off by default because it changes the command before it runs. When enabled, a command ending in `\| head`/`\| tail` with an explicit line count (`-n N`, `-NN`, `--lines=N`, `--lines N`) is rewritten to run at full width, with the count moved into the `head`/`tail` parameter, so the marker reports the total line count and the saved-output path. Only one trailing segment is rewritten; head-then-tail chains, a bare `head`/`tail` without a count, byte mode (`-c`), other flags, extra arguments, quoting or substitution, and calls that already carry window parameters are left untouched.
 - Invalid values fall back to their defaults and log a `[command.window]` warning.
 - The window paragraph tells the model to pass `tail`, `head`, `lines`, or `max_bytes` instead of appending `| head` or `| tail` to the command, because piping hides the total line count and the saved path and can stop the command early. Content filters such as `grep` still belong in the command.
 - The read-back paragraph tells the model to continue reading a saved output file with `read` (`offset`/`limit`, at most 2000 lines per call) instead of rerunning the command. Reading a file outside the workspace can ask for directory approval.
@@ -106,7 +108,7 @@ Call `shell` as usual and add one window parameter:
 | `lines` | `{ start, end? }` | Return the 1-based inclusive range. Omit `end` to read to the end. |
 | `max_bytes` | integer 1–5242880 | Hard cap on the UTF-8 bytes of the window body. Defaults to 204800. |
 
-To limit how much output comes back, pass these parameters instead of appending `| head` or `| tail` to the command: piping hides the total line count and the saved path, and can stop the command early. Filtering by content (for example `grep`) still belongs in the command.
+To limit how much output comes back, pass these parameters instead of appending `| head` or `| tail` to the command: piping hides the total line count and the saved path, and can stop the command early. Filtering by content (for example `grep`) still belongs in the command. With `pipeWindow` enabled, a trailing `\| head`/`\| tail` pipe with an explicit line count is rewritten into these parameters before the command runs.
 
 Rules:
 
@@ -182,10 +184,11 @@ pnpm check   # tsc --noEmit && vitest run
 
 | Path | Purpose |
 | --- | --- |
-| `src/index.ts` | Plugin wiring: options, schema and description transforms, system prompt injection, `execute.after` hook. |
+| `src/index.ts` | Plugin wiring: options, schema and description transforms, system prompt injection, `execute.before` and `execute.after` hooks. |
 | `src/options.ts` | Plugin option validation and defaults. |
 | `src/prompt.ts` | Window-parameter and read-back paragraphs, plus idempotent system part injection. |
 | `src/schema.ts` | Replacement `shell` input schema and the appended description. |
+| `src/pipe.ts` | Trailing `\| head`/`\| tail` pipe parsing and in-place rewrite of one shell call. |
 | `src/window.ts` | Parameter parsing and marker rendering. |
 | `src/scan.ts` | Streaming file and text scans with byte caps. |
 | `src/apply.ts` | Applies a window to one completed tool result. |
@@ -201,4 +204,5 @@ pnpm check   # tsc --noEmit && vitest run
 7. Start `sleep 5` with `{"background": true, "tail": 1}`. The running result must be untouched.
 8. Run `seq 1 200000` with `{"tail": 3}` and then ask the model to show another range. It must read the reported file with the `read` tool instead of rerunning the command.
 9. Ask the model to inspect a command that produces large output. It must pass `tail`, `head`, or `lines` instead of piping the command through `head` or `tail`. Then set `windowHint` to `false`, reload, and confirm the paragraph is no longer injected.
-10. Check `~/.local/share/opencode/log/opencode.log` for `[command.window]` warnings.
+10. Set `pipeWindow` to `true`, reload, and run `seq 1 100 | tail -n 3`. The command must execute at full width and the marker must report lines 98–100 of 100 with the saved-output path when the result is truncated. Then disable `pipeWindow` again and confirm the same call keeps the pipe.
+11. Check `~/.local/share/opencode/log/opencode.log` for `[command.window]` warnings.

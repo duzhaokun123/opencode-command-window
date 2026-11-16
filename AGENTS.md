@@ -16,19 +16,21 @@
 
 - 在 `ctx.tool.transform` 中给内置 `shell` 工具补上 `tail`、`head`、`lines`、`max_bytes` 参数；
 - 在 `ctx.tool.hook("execute.after")` 中按模型声明的范围重算返回内容；
+- `pipeWindow` 选项（默认关闭）开启时，在 `ctx.tool.hook("execute.before")` 中把命令结尾的 `| head` / `| tail` 管道改写成窗口参数；
 - 在 `ctx.session.hook("context")` 中向主 Agent 请求注入两段系统提示词：用窗口参数限制输出、回读保存文件；
-- 不执行命令、不改写命令、不接管权限；不传窗口参数时结果与安装前逐字节一致。
+- 不执行命令、默认不改写命令、不接管权限；不传窗口参数时结果与安装前逐字节一致。
 
 主要文件：
 
 ```text
-src/index.ts    Plugin.define 接线：选项、schema/描述变换、系统提示词注入、execute.after hook
+src/index.ts    Plugin.define 接线：选项、schema/描述变换、系统提示词注入、execute.before/execute.after hook
 src/options.ts  插件选项校验与默认值
 src/prompt.ts   截断参数与回读段落、幂等 system part 注入
 src/schema.ts   shell 的新 input JSON Schema 与追加描述
 src/window.ts   参数解析、校验、marker 渲染（纯函数）
 src/scan.ts     文件/内联文本的流式扫描
 src/apply.ts    把窗口应用到 execute.after 事件
+src/pipe.ts     命令结尾 | head / | tail 管道的解析与改写（纯函数，pipeWindow 开启时生效）
 ```
 
 上游依据：OpenCode v2.3.0 的 `packages/core/src/tool/plugin/shell.ts`、`packages/core/src/tool.ts`、`packages/core/src/session/runner/step.ts`、`packages/core/src/tool-output.ts`。插件 API 文档见 <https://opencode.ai/docs/build/plugins/server>。
@@ -81,6 +83,7 @@ CI（`.github/workflows/ci.yml`）在 push 到 `main` 与 PR 时跑同一组命�
 ## 实现约定
 
 - **hook 内绝不抛异常**。Promise hook 的回调用 `Effect.promise` 包装，reject 会成为 defect；所有可预见的失败都降级为“原结果 + 一行说明”。
+- `execute.before` 对 `event.input` 的就地修改会原样传给工具执行（v2.3.0 的 `beforeExecute` 把同一引用交给 `executeTool`）；`src/pipe.ts` 的管道改写依赖这一点，改写只动 `command` 与 `head`/`tail`，不添加 schema 之外的字段（input schema 是 `additionalProperties: false`）。
 - `Tool.Result` 的字段是 `readonly`，替换结果必须整体重新赋值 `event.result = { ...event.result, ... }`，不能逐字段改写。
 - `shell` 的 `content` 除正文外还可能有退出码/超时提示；窗口化只能替换正文 part，其余 part 必须保留。
 - marker 里的 `full output saved to <path>` 是既有消费者依赖的短语，不得改写。

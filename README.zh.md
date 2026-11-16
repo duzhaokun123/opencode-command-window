@@ -72,6 +72,8 @@ OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果克隆�
 | 选项 | 类型 | 含义 |
 | --- | --- | --- |
 | `pipeWindow` | 布尔 | 把命令结尾的 `\| head` / `\| tail` 管道改写成 `head` / `tail` 窗口参数再执行，默认 `false`。 |
+| `pipeWarning` | 布尔 | 已完成的 shell 命令仍把输出接到 `head` / `tail` 时，在结果前面插入一段 `[window warning: ...]` 提醒。默认 `false`。 |
+| `pipeWarningText` | 非空字符串 | 替换内置的提醒文本。 |
 | `windowHint` | 布尔 | 是否把截断参数段落注入系统提示词，默认 `true`。 |
 | `windowHintText` | 非空字符串 | 替换内置的截断参数段落。 |
 | `readBack` | 布尔 | 是否把回读段落注入系统提示词，默认 `true`。 |
@@ -82,6 +84,7 @@ OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果克隆�
 - 选项只来自 `plugins` 条目。通过配置目录 `plugins/` 自动发现的插件拿到的是空选项；在 `plugins` 中声明同一个包或同一个绝对目录即可提供选项，并替换自动发现的那一条。
 - `pipeWindow` 默认关闭，因为它会在命令执行前改写命令。开启后，命令结尾带显式行数的 `\| head` / `\| tail`（`-n N`、`-NN`、`--lines=N`、`--lines N`）会被改写成全量执行，行数移入 `head` / `tail` 参数，因此 marker 会报告总行数与保存路径。只改写最后一个管道段：head→tail 链、不带行数的裸 `head` / `tail`、字节模式（`-c`）、其他 flag、多余参数、引号或命令替换、已带窗口参数的调用都保持原样；用 `&&`、`||`、`;`、`&` 或换行拼接了其他命令的调用也保持原样，因为管道只作用于最后一段，而窗口参数会覆盖整条命令的输出。
 - 两段提示都只注入主 Agent 请求。截断参数段落还要求该请求包含 `shell` 工具；回读段落要求 `read` 工具。
+- `pipeWarning` 默认关闭。开启后，已完成的 shell 调用若把输出接到 `head` 或 `tail`，提醒会插在结果最前面，让模型先读到它、再看到被隐藏的输出。检测覆盖引号深度 0 的每个 `|`，因此也包括拼接命令（`cd /tmp && … | tail`）和改写器拒绝的形式（`| head -c 100`、裸 `| head`、多余参数）；引号内的管道与 `||` / `|&` 不算。运行中与被终止的结果不处理。`pipeWindow` 已改写的结尾管道在执行前就不存在，因此不会触发提醒。
 - 无效值会回退默认值，并在日志中留下 `[command.window]` 警告。
 - 截断参数段落要求模型传 `tail`、`head`、`lines` 或 `max_bytes`，而不是把命令接到 `| head` / `| tail`：管道会隐藏总行数与保存路径，还可能提前终止命令。`grep` 等内容过滤仍由命令自身完成。
 - 回读段落要求模型用 `read`（`offset`/`limit`，单次最多 2000 行）继续读取保存的输出文件，而不是重跑命令。读取工作区外的文件可能触发目录授权确认。
@@ -186,7 +189,8 @@ pnpm check   # tsc --noEmit && vitest run
 | `src/options.ts` | 插件选项校验与默认值。 |
 | `src/prompt.ts` | 截断参数段落、回读段落，以及幂等的 system part 注入。 |
 | `src/schema.ts` | 替换后的 `shell` input schema 与追加描述。 |
-| `src/pipe.ts` | 命令结尾 `| head` / `| tail` 管道的解析与单次调用的原地改写。 |
+| `src/pipe.ts` | 命令结尾 `| head` / `| tail` 管道的解析、单次调用的原地改写，以及提醒用的检测。 |
+| `src/warn.ts` | 已完成的 shell 调用若把输出接到 `head` / `tail`，在结果前插入提醒。 |
 | `src/window.ts` | 参数解析与 marker 渲染。 |
 | `src/scan.ts` | 带字节上限的流式文件/文本扫描。 |
 | `src/apply.ts` | 把窗口应用到单个已完成的工具结果。 |
@@ -203,4 +207,5 @@ pnpm check   # tsc --noEmit && vitest run
 8. 用 `{"tail": 3}` 执行 `seq 1 200000`，然后要求模型展示另一段。模型必须用 `read` 工具读取报告的文件，而不是重跑命令。
 9. 要求模型查看一条大段输出的命令。模型必须传 `tail`、`head` 或 `lines`，而不是把命令接到 `head` 或 `tail`。然后把 `windowHint` 设为 `false` 并重新加载，确认该段落不再注入。
 10. 把 `pipeWindow` 设为 `true` 并重新加载，执行 `seq 1 100 | tail -n 3`。命令必须全量执行，marker 必须报告 98–100 行（共 100 行），且结果被截断时带保存路径。再把 `pipeWindow` 设回 `false`，确认同样的调用保留管道。
-11. 检查 `~/.local/share/opencode/log/opencode.log` 是否有 `[command.window]` 警告。
+11. 把 `pipeWarning` 设为 `true` 并重新加载，执行 `seq 1 100 | tail -n 3`。结果必须以 `[window warning: ...]` 开头，正文仍是默认预览（只有最后几行）。再把它设回 `false`，确认同样的调用不再带提醒。
+12. 检查 `~/.local/share/opencode/log/opencode.log` 是否有 `[command.window]` 警告。

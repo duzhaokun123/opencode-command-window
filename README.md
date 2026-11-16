@@ -75,6 +75,8 @@ Both system prompt paragraphs are on by default. Change them by declaring the pl
 | Option | Type | Meaning |
 | --- | --- | --- |
 | `pipeWindow` | boolean | Rewrite a trailing `\| head`/`\| tail` pipe in the command into the `head`/`tail` window parameters before the command runs. Defaults to `false`. |
+| `pipeWarning` | boolean | Prepend a `[window warning: ...]` note to a completed shell result when the command still piped through `head` or `tail`. Defaults to `false`. |
+| `pipeWarningText` | non-empty string | Replace the built-in warning text. |
 | `windowHint` | boolean | Inject the window-parameter paragraph into the system prompt. Defaults to `true`. |
 | `windowHintText` | non-empty string | Replace the built-in window-parameter paragraph. |
 | `readBack` | boolean | Inject the read-back paragraph into the system prompt. Defaults to `true`. |
@@ -84,6 +86,7 @@ Notes:
 
 - Options only come from a `plugins` entry. A plugin discovered under a config location's `plugins/` folder receives empty options; declaring the same package or absolute directory in `plugins` supplies options and replaces the discovered entry.
 - `pipeWindow` is off by default because it changes the command before it runs. When enabled, a command ending in `\| head`/`\| tail` with an explicit line count (`-n N`, `-NN`, `--lines=N`, `--lines N`) is rewritten to run at full width, with the count moved into the `head`/`tail` parameter, so the marker reports the total line count and the saved-output path. Only one trailing segment is rewritten; head-then-tail chains, a bare `head`/`tail` without a count, byte mode (`-c`), other flags, extra arguments, quoting or substitution, and calls that already carry window parameters are left untouched. So are commands that join another command (`&&`, `||`, `;`, `&`, or a newline), because the pipe only sees the last pipeline while the window would cover the whole output.
+- `pipeWarning` is off by default. When enabled, a completed shell call whose command pipes output through `head` or `tail` gets the note prepended to the result, so the model reads the warning first. Detection looks at every `|` at shell quoting depth 0, so it also catches joined commands (`cd /tmp && … | tail`) and forms the rewriter refuses (`| head -c 100`, a bare `| head`, extra arguments); quoted pipes and `||`/`|&` do not count. Running and killed results are left alone. A trailing pipe already rewritten by `pipeWindow` is gone before the command runs, so it triggers no warning.
 - Invalid values fall back to their defaults and log a `[command.window]` warning.
 - The window paragraph tells the model to pass `tail`, `head`, `lines`, or `max_bytes` instead of appending `| head` or `| tail` to the command, because piping hides the total line count and the saved path and can stop the command early. Content filters such as `grep` still belong in the command.
 - The read-back paragraph tells the model to continue reading a saved output file with `read` (`offset`/`limit`, at most 2000 lines per call) instead of rerunning the command. Reading a file outside the workspace can ask for directory approval.
@@ -188,7 +191,8 @@ pnpm check   # tsc --noEmit && vitest run
 | `src/options.ts` | Plugin option validation and defaults. |
 | `src/prompt.ts` | Window-parameter and read-back paragraphs, plus idempotent system part injection. |
 | `src/schema.ts` | Replacement `shell` input schema and the appended description. |
-| `src/pipe.ts` | Trailing `\| head`/`\| tail` pipe parsing and in-place rewrite of one shell call. |
+| `src/pipe.ts` | Trailing `\| head`/`\| tail` pipe parsing, in-place rewrite of one shell call, and detection for the warning. |
+| `src/warn.ts` | Prepends the advisory note when a completed shell call piped through `head`/`tail`. |
 | `src/window.ts` | Parameter parsing and marker rendering. |
 | `src/scan.ts` | Streaming file and text scans with byte caps. |
 | `src/apply.ts` | Applies a window to one completed tool result. |
@@ -205,4 +209,5 @@ pnpm check   # tsc --noEmit && vitest run
 8. Run `seq 1 200000` with `{"tail": 3}` and then ask the model to show another range. It must read the reported file with the `read` tool instead of rerunning the command.
 9. Ask the model to inspect a command that produces large output. It must pass `tail`, `head`, or `lines` instead of piping the command through `head` or `tail`. Then set `windowHint` to `false`, reload, and confirm the paragraph is no longer injected.
 10. Set `pipeWindow` to `true`, reload, and run `seq 1 100 | tail -n 3`. The command must execute at full width and the marker must report lines 98–100 of 100 with the saved-output path when the result is truncated. Then disable `pipeWindow` again and confirm the same call keeps the pipe.
-11. Check `~/.local/share/opencode/log/opencode.log` for `[command.window]` warnings.
+11. Set `pipeWarning` to `true`, reload, and run `seq 1 100 | tail -n 3`. The result must begin with `[window warning: ...]` and still contain only the last lines as the default preview. Then disable it and confirm the same call comes back without the note.
+12. Check `~/.local/share/opencode/log/opencode.log` for `[command.window]` warnings.

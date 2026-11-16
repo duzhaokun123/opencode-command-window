@@ -90,6 +90,7 @@ CI（`.github/workflows/ci.yml`）在 push 到 `main` 与 PR 时跑同一组命�
 
 - **hook 内绝不抛异常**。Promise hook 的回调用 `Effect.promise` 包装，reject 会成为 defect；所有可预见的失败都降级为“原结果 + 一行说明”。
 - `execute.before` 对 `event.input` 的就地修改会原样传给工具执行（v2.3.0 的 `beforeExecute` 把同一引用交给 `executeTool`）；`src/pipe.ts` 的管道改写依赖这一点，改写只动 `command` 与 `head`/`tail`，不添加 schema 之外的字段（input schema 是 `additionalProperties: false`）。
+- `pipeWindow` 只改写**单一命令**结尾的管道。命令里出现顶层 `&&`、`||`、`;`、`&` 或未被 `|` 接续的换行时保持原样：管道只作用于最后一段，窗口参数却覆盖整条命令的输出。`>&`（如 `2>&1`）与 `|` 之后的换行不算拼接。
 - `Tool.Result` 的字段是 `readonly`，替换结果必须整体重新赋值 `event.result = { ...event.result, ... }`，不能逐字段改写。
 - `shell` 的 `content` 除正文外还可能有退出码/超时提示；窗口化只能替换正文 part，其余 part 必须保留。
 - marker 里的 `full output saved to <path>` 是既有消费者依赖的短语，不得改写。

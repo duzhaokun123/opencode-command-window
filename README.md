@@ -53,7 +53,7 @@ OpenCode loads directories under a config location's `plugins/` folder. If you k
 
 ## Configuration
 
-Both system prompt paragraphs are on by default. Change them by declaring the plugin in `opencode.json(c)` with an `options` object:
+The plugin works without configuration: it adds the `tail`, `head`, `lines`, and `max_bytes` parameters to `shell`, applies them to each result, and injects both system prompt paragraphs for primary requests. To change that behavior, declare the plugin in `opencode.json(c)` with an `options` object. Every key is optional.
 
 ```jsonc
 {
@@ -61,7 +61,12 @@ Both system prompt paragraphs are on by default. Change them by declaring the pl
     {
       "package": "@o0kam1/opencode-command-window",
       "options": {
+        // Opt-in: rewrite a trailing `| head` / `| tail` into window parameters.
         "pipeWindow": true,
+        // Opt-in: warn when a finished command still piped through head or tail.
+        "pipeWarning": true,
+        "pipeWarningText": "Use the shell window parameters instead of piping through head or tail.",
+        // Both prompt paragraphs are on by default.
         "windowHint": true,
         "windowHintText": "Limit output with the shell window parameters instead of piping through head or tail.",
         "readBack": true,
@@ -72,22 +77,33 @@ Both system prompt paragraphs are on by default. Change them by declaring the pl
 }
 ```
 
-| Option | Type | Meaning |
-| --- | --- | --- |
-| `pipeWindow` | boolean | Rewrite a trailing `\| head`/`\| tail` pipe in the command into the `head`/`tail` window parameters before the command runs. Defaults to `false`. |
-| `pipeWarning` | boolean | Prepend a `[window warning: ...]` note to a completed shell result when the command still piped through `head` or `tail`. Defaults to `false`. |
-| `pipeWarningText` | non-empty string | Replace the built-in warning text. |
-| `windowHint` | boolean | Inject the window-parameter paragraph into the system prompt. Defaults to `true`. |
-| `windowHintText` | non-empty string | Replace the built-in window-parameter paragraph. |
-| `readBack` | boolean | Inject the read-back paragraph into the system prompt. Defaults to `true`. |
-| `readBackText` | non-empty string | Replace the built-in read-back paragraph. |
+Options are read once when the plugin loads. After editing them, run `/reload` or restart OpenCode.
+
+### Command options
+
+| Option | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `pipeWindow` | boolean | `false` | Rewrite a trailing `\| head`/`\| tail` pipe in the command into the `head`/`tail` window parameters before the command runs. |
+| `pipeWarning` | boolean | `false` | Prepend a `[window warning: ...]` note to a completed shell result when the command still piped through `head` or `tail`. |
+| `pipeWarningText` | non-empty string | built-in text | Replace the warning text. Used only when `pipeWarning` is `true`. |
+
+### Prompt options
+
+| Option | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `windowHint` | boolean | `true` | Inject the output-window paragraph into primary requests that expose the `shell` tool. |
+| `windowHintText` | non-empty string | built-in text | Replace the output-window paragraph. Used only when `windowHint` is `true`. |
+| `readBack` | boolean | `true` | Inject the read-back paragraph into primary requests that expose the `read` tool. |
+| `readBackText` | non-empty string | built-in text | Replace the read-back paragraph. Used only when `readBack` is `true`. |
 
 Notes:
 
 - Options only come from a `plugins` entry. A plugin discovered under a config location's `plugins/` folder receives empty options; declaring the same package or absolute directory in `plugins` supplies options and replaces the discovered entry.
+- Both prompt paragraphs are injected only into `context` hook requests (primary agent requests); `compaction` and `generate` only refresh the `shell` tool description. The window paragraph requires the request to expose `shell`; the read-back paragraph requires `read`.
 - `pipeWindow` is off by default because it changes the command before it runs. When enabled, a command ending in `\| head`/`\| tail` with an explicit line count (`-n N`, `-NN`, `--lines=N`, `--lines N`) is rewritten to run at full width, with the count moved into the `head`/`tail` parameter, so the marker reports the total line count and the saved-output path. Only one trailing segment is rewritten; head-then-tail chains, a bare `head`/`tail` without a count, byte mode (`-c`), other flags, extra arguments, quoting or substitution, and calls that already carry window parameters are left untouched. So are commands that join another command (`&&`, `||`, `;`, `&`, or a newline), because the pipe only sees the last pipeline while the window would cover the whole output.
 - `pipeWarning` is off by default. When enabled, a completed shell call whose command pipes output through `head` or `tail` gets the note prepended to the result, so the model reads the warning first. Detection looks at every `|` at shell quoting depth 0, so it also catches joined commands (`cd /tmp && … | tail`) and forms the rewriter refuses (`| head -c 100`, a bare `| head`, extra arguments); quoted pipes and `||`/`|&` do not count. Running and killed results are left alone. A trailing pipe already rewritten by `pipeWindow` is gone before the command runs, so it triggers no warning.
-- Invalid values fall back to their defaults and log a `[command.window]` warning.
+- The window parameters, the appended `shell` description, and the `execute.after` window application are always active; no option turns them off.
+- Invalid values fall back to their defaults and log one `[command.window]` warning per key. Booleans must be actual booleans; text options must contain non-whitespace characters after trimming, so a whitespace-only string is rejected. Unknown keys are ignored, and option errors never prevent the plugin from loading.
 - The window paragraph tells the model to pass `tail`, `head`, `lines`, or `max_bytes` instead of appending `| head` or `| tail` to the command, because piping hides the total line count and the saved path and can stop the command early. Content filters such as `grep` still belong in the command.
 - The read-back paragraph tells the model to continue reading a saved output file with `read` (`offset`/`limit`, at most 2000 lines per call) instead of rerunning the command. Reading a file outside the workspace can ask for directory approval.
 - Each paragraph adds a fixed amount of input tokens to every primary request.

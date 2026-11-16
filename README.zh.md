@@ -50,7 +50,7 @@ OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果克隆�
 
 ## 配置
 
-两段系统提示词默认都开启。要修改，请在 `opencode.json(c)` 中声明插件并附上 `options`：
+插件无需配置即可工作：为 `shell` 补上 `tail`、`head`、`lines`、`max_bytes` 参数，把它们应用到每次结果，并为主 Agent 请求注入两段系统提示词。要改变这些行为，请在 `opencode.json(c)` 中声明插件并附上 `options`。所有键都是可选的。
 
 ```jsonc
 {
@@ -58,7 +58,12 @@ OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果克隆�
     {
       "package": "@o0kam1/opencode-command-window",
       "options": {
+        // 可选开启：把命令结尾的 `| head` / `| tail` 改写成窗口参数。
         "pipeWindow": true,
+        // 可选开启：已完成的命令仍接到 head / tail 时给出提醒。
+        "pipeWarning": true,
+        "pipeWarningText": "用 shell 的输出窗口参数限制输出，不要把命令接到 head 或 tail。",
+        // 两段提示词默认开启。
         "windowHint": true,
         "windowHintText": "用 shell 的输出窗口参数限制输出，不要把命令接到 head 或 tail。",
         "readBack": true,
@@ -69,24 +74,34 @@ OpenCode 会加载配置目录下 `plugins/` 中的插件目录。如果克隆�
 }
 ```
 
-| 选项 | 类型 | 含义 |
-| --- | --- | --- |
-| `pipeWindow` | 布尔 | 把命令结尾的 `\| head` / `\| tail` 管道改写成 `head` / `tail` 窗口参数再执行，默认 `false`。 |
-| `pipeWarning` | 布尔 | 已完成的 shell 命令仍把输出接到 `head` / `tail` 时，在结果前面插入一段 `[window warning: ...]` 提醒。默认 `false`。 |
-| `pipeWarningText` | 非空字符串 | 替换内置的提醒文本。 |
-| `windowHint` | 布尔 | 是否把截断参数段落注入系统提示词，默认 `true`。 |
-| `windowHintText` | 非空字符串 | 替换内置的截断参数段落。 |
-| `readBack` | 布尔 | 是否把回读段落注入系统提示词，默认 `true`。 |
-| `readBackText` | 非空字符串 | 替换内置的回读段落。 |
+选项在插件加载时读取一次。修改后请执行 `/reload` 或重启 OpenCode。
+
+### 命令选项
+
+| 选项 | 类型 | 默认值 | 含义 |
+| --- | --- | --- | --- |
+| `pipeWindow` | 布尔 | `false` | 把命令结尾的 `\| head` / `\| tail` 管道改写成 `head` / `tail` 窗口参数再执行。 |
+| `pipeWarning` | 布尔 | `false` | 已完成的 shell 命令仍把输出接到 `head` / `tail` 时，在结果前面插入一段 `[window warning: ...]` 提醒。 |
+| `pipeWarningText` | 非空字符串 | 内置文本 | 替换提醒文本，仅在 `pipeWarning` 为 `true` 时生效。 |
+
+### 提示词选项
+
+| 选项 | 类型 | 默认值 | 含义 |
+| --- | --- | --- | --- |
+| `windowHint` | 布尔 | `true` | 向包含 `shell` 工具的主 Agent 请求注入输出窗口段落。 |
+| `windowHintText` | 非空字符串 | 内置文本 | 替换输出窗口段落，仅在 `windowHint` 为 `true` 时生效。 |
+| `readBack` | 布尔 | `true` | 向包含 `read` 工具的主 Agent 请求注入回读段落。 |
+| `readBackText` | 非空字符串 | 内置文本 | 替换回读段落，仅在 `readBack` 为 `true` 时生效。 |
 
 说明：
 
 - 选项只来自 `plugins` 条目。通过配置目录 `plugins/` 自动发现的插件拿到的是空选项；在 `plugins` 中声明同一个包或同一个绝对目录即可提供选项，并替换自动发现的那一条。
+- 两段提示都只注入 `context` hook 的请求（主 Agent 请求）；`compaction` 与 `generate` 只同步 `shell` 工具描述。输出窗口段落要求请求包含 `shell` 工具，回读段落要求包含 `read` 工具。
 - `pipeWindow` 默认关闭，因为它会在命令执行前改写命令。开启后，命令结尾带显式行数的 `\| head` / `\| tail`（`-n N`、`-NN`、`--lines=N`、`--lines N`）会被改写成全量执行，行数移入 `head` / `tail` 参数，因此 marker 会报告总行数与保存路径。只改写最后一个管道段：head→tail 链、不带行数的裸 `head` / `tail`、字节模式（`-c`）、其他 flag、多余参数、引号或命令替换、已带窗口参数的调用都保持原样；用 `&&`、`||`、`;`、`&` 或换行拼接了其他命令的调用也保持原样，因为管道只作用于最后一段，而窗口参数会覆盖整条命令的输出。
-- 两段提示都只注入主 Agent 请求。截断参数段落还要求该请求包含 `shell` 工具；回读段落要求 `read` 工具。
 - `pipeWarning` 默认关闭。开启后，已完成的 shell 调用若把输出接到 `head` 或 `tail`，提醒会插在结果最前面，让模型先读到它、再看到被隐藏的输出。检测覆盖引号深度 0 的每个 `|`，因此也包括拼接命令（`cd /tmp && … | tail`）和改写器拒绝的形式（`| head -c 100`、裸 `| head`、多余参数）；引号内的管道与 `||` / `|&` 不算。运行中与被终止的结果不处理。`pipeWindow` 已改写的结尾管道在执行前就不存在，因此不会触发提醒。
-- 无效值会回退默认值，并在日志中留下 `[command.window]` 警告。
-- 截断参数段落要求模型传 `tail`、`head`、`lines` 或 `max_bytes`，而不是把命令接到 `| head` / `| tail`：管道会隐藏总行数与保存路径，还可能提前终止命令。`grep` 等内容过滤仍由命令自身完成。
+- 窗口参数、追加的 `shell` 描述与 `execute.after` 的窗口应用始终生效，没有选项可以关闭它们。
+- 无效值会逐键回退默认值，并各在日志中留下一条 `[command.window]` 警告。布尔值必须是真正的布尔值；文本选项去除首尾空白后必须仍有内容，纯空白字符串会被拒绝。未知键会被忽略，选项错误不会阻止插件加载。
+- 输出窗口段落要求模型传 `tail`、`head`、`lines` 或 `max_bytes`，而不是把命令接到 `| head` / `| tail`：管道会隐藏总行数与保存路径，还可能提前终止命令。`grep` 等内容过滤仍由命令自身完成。
 - 回读段落要求模型用 `read`（`offset`/`limit`，单次最多 2000 行）继续读取保存的输出文件，而不是重跑命令。读取工作区外的文件可能触发目录授权确认。
 - 每段提示都会给每次主请求增加固定数量的输入 token。
 
@@ -187,9 +202,9 @@ pnpm check   # tsc --noEmit && vitest run
 | --- | --- |
 | `src/index.ts` | 插件接线：选项、schema 与描述变换、系统提示词注入、`execute.before` 与 `execute.after` hook。 |
 | `src/options.ts` | 插件选项校验与默认值。 |
-| `src/prompt.ts` | 截断参数段落、回读段落，以及幂等的 system part 注入。 |
+| `src/prompt.ts` | 输出窗口段落、回读段落，以及幂等的 system part 注入。 |
 | `src/schema.ts` | 替换后的 `shell` input schema 与追加描述。 |
-| `src/pipe.ts` | 命令结尾 `| head` / `| tail` 管道的解析、单次调用的原地改写，以及提醒用的检测。 |
+| `src/pipe.ts` | 命令结尾 `\| head` / `\| tail` 管道的解析、单次调用的原地改写，以及提醒用的检测。 |
 | `src/warn.ts` | 已完成的 shell 调用若把输出接到 `head` / `tail`，在结果前插入提醒。 |
 | `src/window.ts` | 参数解析与 marker 渲染。 |
 | `src/scan.ts` | 带字节上限的流式文件/文本扫描。 |

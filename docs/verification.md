@@ -39,3 +39,6 @@
   - `pipeWarning: true`：`seq 1 100 | tail -n 3` 的工具结果首行是 `[window warning: …]`，正文 98/99/100 完整保留（模型按要求复述了整个工具结果）；CLI 回显只画出第一个 content part，正文只在模型收到的结果里可见。
   - 默认（无 `options`）：同一调用只有 98/99/100，没有提醒。
   - 日志出现 `msg="loading plugin" id=/home/o0kam1/…/opencode-command-window`（从 `src/index.ts` 加载），无 `[command.window]` 警告。
+- 2026-11-16 发布 v0.3.0 前用 `npm pack` 打出的 tarball 核实发布产物（安装到 `/var/tmp/opencode/release-cw-0.3.0`，插件按目录条目加载 `node_modules/@o0kam1/opencode-command-window/src/index.ts`，`pipeWindow: true`，同样用 `cw-pipe-xdg` 隔离、`--standalone --auto -m local2/deepseek-flash`）：
+  - `seq 1 100 | tail -n 3` → 98–100 行加 `[showing lines 98-100 of 100 (tail 3); full output was not saved because the result was not truncated]`，无 `[window warning: …]`：总数 100 证明结尾管道被改写为全量执行，改写发生在提醒检测之前。
+  - 日志出现 `msg="loading plugin" id=/var/tmp/opencode/release-cw-0.3.0/node_modules/@o0kam1/opencode-command-window`，无 `[command.window]` 警告。

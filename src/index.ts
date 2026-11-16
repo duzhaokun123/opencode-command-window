@@ -3,6 +3,7 @@ import { Plugin } from "@opencode/plugin"
 import { applyWindow } from "./apply.ts"
 import { resolveOptions } from "./options.ts"
 import { injectReadBack, injectWindowHint, type SystemPartLike } from "./prompt.ts"
+import { rewritePipeWindow, type BeforeEventLike } from "./pipe.ts"
 import { DESCRIPTION_MARKER, INPUT_SCHEMA, OUTPUT_WINDOW_DESCRIPTION } from "./schema.ts"
 
 const SHELL = "shell"
@@ -59,6 +60,16 @@ export default Plugin.define({
 		await ctx.session.hook("context", withPrompts)
 		await ctx.session.hook("compaction", describe)
 		await ctx.session.hook("generate", describe)
+
+		if (options.pipeWindow) {
+			await ctx.tool.hook("execute.before", (event: BeforeEventLike) => {
+				try {
+					rewritePipeWindow(event)
+				} catch (error) {
+					console.warn("[command.window] failed to rewrite the trailing head/tail pipe", error)
+				}
+			})
+		}
 
 		await ctx.tool.hook("execute.after", async (event) => {
 			try {

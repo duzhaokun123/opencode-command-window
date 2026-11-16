@@ -19,6 +19,7 @@ function fakeContext(
 	options: Record<string, unknown> = {},
 ) {
 	let transform: ((editor: ToolEditor) => void) | undefined
+	let before: ((event: never) => Promise<void> | void) | undefined
 	let after: ((event: never) => Promise<void> | void) | undefined
 	const sessionHooks = new Map<string, (event: never) => void>()
 	const list = vi.fn(async () => tools)
@@ -31,6 +32,7 @@ function fakeContext(
 				return { dispose: async () => {} }
 			},
 			hook: async (name: string, callback: (event: never) => Promise<void> | void) => {
+				if (name === "execute.before") before = callback
 				if (name === "execute.after") after = callback
 				return { dispose: async () => {} }
 			},
@@ -56,11 +58,16 @@ function fakeContext(
 			expect(sessionHooks.has(name)).toBe(true)
 			sessionHooks.get(name)!(event as never)
 		},
+		runBefore(event: unknown) {
+			expect(before).toBeDefined()
+			before!(event as never)
+		},
 		async runAfter(event: unknown) {
 			expect(after).toBeDefined()
 			await after!(event as never)
 		},
 		hasTransform: () => transform !== undefined,
+		hasBefore: () => before !== undefined,
 		hasAfter: () => after !== undefined,
 	}
 }
@@ -213,6 +220,40 @@ describe("plugin setup", () => {
 					result: { output: { output: "x" }, content: [] },
 				}),
 			).resolves.toBeUndefined()
+			expect(warn).toHaveBeenCalled()
+		} finally {
+			warn.mockRestore()
+		}
+	})
+
+	it("does not register the execute.before hook by default", async () => {
+		const fake = fakeContext()
+		await plugin.setup(fake.context)
+		expect(fake.hasBefore()).toBe(false)
+	})
+
+	it("rewrites a trailing head/tail pipe when pipeWindow is enabled", async () => {
+		const fake = fakeContext(undefined, { pipeWindow: true })
+		await plugin.setup(fake.context)
+		expect(fake.hasBefore()).toBe(true)
+
+		const input = { command: "seq 1 100 | tail -n 3" }
+		fake.runBefore({ tool: "shell", input })
+		expect(input).toEqual({ command: "seq 1 100", tail: 3 })
+	})
+
+	it("never rejects from the execute.before hook", async () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+		try {
+			const fake = fakeContext(undefined, { pipeWindow: true })
+			await plugin.setup(fake.context)
+			const input = {}
+			Object.defineProperty(input, "command", {
+				get() {
+					throw new Error("boom")
+				},
+			})
+			fake.runBefore({ tool: "shell", input })
 			expect(warn).toHaveBeenCalled()
 		} finally {
 			warn.mockRestore()

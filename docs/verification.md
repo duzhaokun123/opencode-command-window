@@ -35,3 +35,7 @@
   - `cd /tmp && seq 1 100 | tail -n 3` → 只有 98/99/100 三行，无 marker；`cd /tmp; seq 1 100 | tail -n 3` 同样无 marker，命令里的管道保持原样。
   - `seq 1 100 | tail -n 3` → 98–100 行加 `[showing lines 98-100 of 100 (tail 3); full output was not saved because the result was not truncated]`，单一命令的改写不受影响。
   - 日志出现 `msg="loading plugin" id=/home/o0kam1/…/opencode-command-window`（从 `src/index.ts` 加载），无 `[command.window]` 警告。
+- 2026-11-16 在同一方式的真实会话中核实 `pipeWarning`（临时项目 `/var/tmp/opencode/verify-cw-warn-on` 与 `-off`，同样用 `cw-pipe-xdg` 隔离、`--standalone --auto -m local2/deepseek-flash`，提示词要求命令逐字带管道并禁止窗口参数）：
+  - `pipeWarning: true`：`seq 1 100 | tail -n 3` 的工具结果首行是 `[window warning: …]`，正文 98/99/100 完整保留（模型按要求复述了整个工具结果）；CLI 回显只画出第一个 content part，正文只在模型收到的结果里可见。
+  - 默认（无 `options`）：同一调用只有 98/99/100，没有提醒。
+  - 日志出现 `msg="loading plugin" id=/home/o0kam1/…/opencode-command-window`（从 `src/index.ts` 加载），无 `[command.window]` 警告。

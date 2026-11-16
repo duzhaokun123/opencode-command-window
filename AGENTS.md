@@ -59,7 +59,7 @@ pnpm check   # tsc --noEmit + vitest run
 
 CI（`.github/workflows/ci.yml`）在 push 到 `main` 与 PR 时跑同一组命令；Gitea 只读 `.gitea/workflows/`，所以它要等镜像同步到 GitHub 后才运行。
 
-插件行为只能在真实 OpenCode 会话里验证：安装后保存配置触发热重载，或执行 `/reload`；日志位于 `~/.local/share/opencode/log/opencode.log`。验证项见 README 的“验证”一节；隔离全局插件、`--standalone` 与观察系统提示词的方法，以及历次验证结果，见 `docs/verification.md`。
+插件行为只能在真实 OpenCode 会话里验证：安装后保存配置触发热重载，或执行 `/reload`；日志位于 `~/.local/share/opencode/log/opencode.log`。验证项见 README 的“验证”一节；隔离全局插件、`--standalone` 与观察系统提示词的方法，以及已知验证结论，见 `docs/verification.md`。
 
 ## 实现约定
 
@@ -83,4 +83,4 @@ CI（`.github/workflows/ci.yml`）在 push 到 `main` 与 PR 时跑同一组命�
 - `README.md`（英文）与 `README.zh.md`（中文）描述安装、参数、marker 与限制；行为变更时同步更新。
 - `LICENSE` 为 MIT，版权人 duzhaokun123（2026）。
 - `docs/release.md` 是唯一的发版依据，只供维护者使用。发版流程与包元数据变化时更新该文件；两份 README 不记录发版流程，因为它们面向使用者。
-- `docs/verification.md` 记录真机验证的方法与历史结果，只供维护者使用；每次做完真机会话验证都在此追加，AGENTS.md 与 README 不堆验证记录。
+- `docs/verification.md` 记录真机验证的方法与已知结论，只供维护者使用；只在验证方法变化或出现新的结论性证据时更新，不逐次记账，AGENTS.md 与 README 不堆验证记录。

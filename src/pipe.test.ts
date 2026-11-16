@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { parsePipeWindow, rewritePipeWindow } from "./pipe.ts"
+import { parsePipeWindow, pipesThroughHeadTail, rewritePipeWindow } from "./pipe.ts"
 
 describe("parsePipeWindow", () => {
 	it("parses the supported trailing head/tail forms", () => {
@@ -92,6 +92,49 @@ describe("parsePipeWindow", () => {
 			command: "seq 1 100 | head -n 50 | grep 9",
 			tail: 3,
 		})
+	})
+})
+
+describe("pipesThroughHeadTail", () => {
+	it("detects every supported head/tail pipe form", () => {
+		for (const command of [
+			"seq 1 100 | tail -n 3",
+			"seq 1 100 | head -n 3",
+			"seq 1 100 | head",
+			"seq 1 100 | tail",
+			"seq 1 100 | head -c 100",
+			"seq 1 100 | tail -n 3 out.txt",
+			"seq 1 100 | head -n 20 | tail -n 5",
+			"seq 1 100 |\n tail -n 3",
+		])
+			expect(pipesThroughHeadTail(command)).toBe(true)
+	})
+
+	it("detects pipes inside joined commands", () => {
+		for (const command of [
+			"cd /tmp && seq 1 100 | tail -n 3",
+			"cd /tmp; seq 1 100 | head -n 3",
+			"false || seq 1 100 | tail -n 3",
+		])
+			expect(pipesThroughHeadTail(command)).toBe(true)
+	})
+
+	it("ignores commands without a head/tail pipe", () => {
+		for (const command of [
+			"seq 1 100",
+			"seq 1 100 | grep 1",
+			"seq 1 100 | headless",
+			"seq 1 100 | tailwind",
+			`echo "| tail -n 3"`,
+			"echo 'a|b'",
+			"echo a\\|b",
+			"false || tail -n 3",
+			"false |& tail -n 3",
+			"head -n 3 file.txt",
+			"tail -n 3 file.txt",
+			"",
+		])
+			expect(pipesThroughHeadTail(command)).toBe(false)
 	})
 })
 

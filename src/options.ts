@@ -1,7 +1,10 @@
 import { DEFAULT_READ_BACK_TEXT, DEFAULT_WINDOW_HINT_TEXT } from "./prompt.ts"
+import { DEFAULT_PIPE_WARNING_TEXT } from "./warn.ts"
 
 /** Options read from the plugin entry's `options` object in `opencode.json(c)`. */
 export interface Options {
+	readonly pipeWarning: boolean
+	readonly pipeWarningText: string
 	readonly pipeWindow: boolean
 	readonly readBack: boolean
 	readonly readBackText: string
@@ -10,6 +13,8 @@ export interface Options {
 }
 
 export const DEFAULT_OPTIONS: Options = {
+	pipeWarning: false,
+	pipeWarningText: DEFAULT_PIPE_WARNING_TEXT,
 	pipeWindow: false,
 	readBack: true,
 	readBackText: DEFAULT_READ_BACK_TEXT,
@@ -48,6 +53,17 @@ export function resolveOptions(raw: unknown): Options {
 	if (raw.pipeWindow !== undefined && pipeWindow === undefined)
 		warn("pipeWindow must be a boolean; using the default (false)")
 
+	const pipeWarning = typeof raw.pipeWarning === "boolean" ? raw.pipeWarning : undefined
+	if (raw.pipeWarning !== undefined && pipeWarning === undefined)
+		warn("pipeWarning must be a boolean; using the default (false)")
+
+	const customPipeWarningText =
+		typeof raw.pipeWarningText === "string" && raw.pipeWarningText.trim().length > 0
+			? raw.pipeWarningText
+			: undefined
+	if (raw.pipeWarningText !== undefined && customPipeWarningText === undefined)
+		warn("pipeWarningText must be a non-empty string; using the default text")
+
 	const windowHint = typeof raw.windowHint === "boolean" ? raw.windowHint : undefined
 	if (raw.windowHint !== undefined && windowHint === undefined)
 		warn("windowHint must be a boolean; using the default (true)")
@@ -58,6 +74,8 @@ export function resolveOptions(raw: unknown): Options {
 		warn("windowHintText must be a non-empty string; using the default text")
 
 	return {
+		pipeWarning: pipeWarning ?? DEFAULT_OPTIONS.pipeWarning,
+		pipeWarningText: customPipeWarningText ?? DEFAULT_OPTIONS.pipeWarningText,
 		pipeWindow: pipeWindow ?? DEFAULT_OPTIONS.pipeWindow,
 		readBack: readBack ?? DEFAULT_OPTIONS.readBack,
 		readBackText: customReadBackText ?? DEFAULT_OPTIONS.readBackText,

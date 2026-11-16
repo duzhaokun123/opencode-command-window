@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import { DEFAULT_OPTIONS, resolveOptions } from "./options.ts"
 import { DEFAULT_READ_BACK_TEXT, DEFAULT_WINDOW_HINT_TEXT } from "./prompt.ts"
+import { DEFAULT_PIPE_WARNING_TEXT } from "./warn.ts"
 
 function captureWarnings() {
 	const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
@@ -16,6 +17,8 @@ describe("resolveOptions", () => {
 	it("uses the defaults when no options are configured", () => {
 		expect(resolveOptions(undefined)).toEqual(DEFAULT_OPTIONS)
 		expect(resolveOptions({})).toEqual(DEFAULT_OPTIONS)
+		expect(DEFAULT_OPTIONS.pipeWarning).toBe(false)
+		expect(DEFAULT_OPTIONS.pipeWarningText).toBe(DEFAULT_PIPE_WARNING_TEXT)
 		expect(DEFAULT_OPTIONS.pipeWindow).toBe(false)
 		expect(DEFAULT_OPTIONS.readBack).toBe(true)
 		expect(DEFAULT_OPTIONS.readBackText).toBe(DEFAULT_READ_BACK_TEXT)
@@ -25,7 +28,21 @@ describe("resolveOptions", () => {
 
 	it("enables the pipe rewrite", () => {
 		expect(resolveOptions({ pipeWindow: true })).toEqual({
+			pipeWarning: false,
+			pipeWarningText: DEFAULT_PIPE_WARNING_TEXT,
 			pipeWindow: true,
+			readBack: true,
+			readBackText: DEFAULT_READ_BACK_TEXT,
+			windowHint: true,
+			windowHintText: DEFAULT_WINDOW_HINT_TEXT,
+		})
+	})
+
+	it("enables the head/tail warning", () => {
+		expect(resolveOptions({ pipeWarning: true })).toEqual({
+			pipeWarning: true,
+			pipeWarningText: DEFAULT_PIPE_WARNING_TEXT,
+			pipeWindow: false,
 			readBack: true,
 			readBackText: DEFAULT_READ_BACK_TEXT,
 			windowHint: true,
@@ -35,6 +52,8 @@ describe("resolveOptions", () => {
 
 	it("disables the read-back prompt", () => {
 		expect(resolveOptions({ readBack: false })).toEqual({
+			pipeWarning: false,
+			pipeWarningText: DEFAULT_PIPE_WARNING_TEXT,
 			pipeWindow: false,
 			readBack: false,
 			readBackText: DEFAULT_READ_BACK_TEXT,
@@ -45,6 +64,8 @@ describe("resolveOptions", () => {
 
 	it("disables the window hint", () => {
 		expect(resolveOptions({ windowHint: false })).toEqual({
+			pipeWarning: false,
+			pipeWarningText: DEFAULT_PIPE_WARNING_TEXT,
 			pipeWindow: false,
 			readBack: true,
 			readBackText: DEFAULT_READ_BACK_TEXT,
@@ -55,6 +76,8 @@ describe("resolveOptions", () => {
 
 	it("replaces the default texts", () => {
 		expect(resolveOptions({ readBackText: "Custom instruction." })).toEqual({
+			pipeWarning: false,
+			pipeWarningText: DEFAULT_PIPE_WARNING_TEXT,
 			pipeWindow: false,
 			readBack: true,
 			readBackText: "Custom instruction.",
@@ -62,16 +85,29 @@ describe("resolveOptions", () => {
 			windowHintText: DEFAULT_WINDOW_HINT_TEXT,
 		})
 		expect(resolveOptions({ windowHintText: "Use window parameters." })).toEqual({
+			pipeWarning: false,
+			pipeWarningText: DEFAULT_PIPE_WARNING_TEXT,
 			pipeWindow: false,
 			readBack: true,
 			readBackText: DEFAULT_READ_BACK_TEXT,
 			windowHint: true,
 			windowHintText: "Use window parameters.",
 		})
+		expect(resolveOptions({ pipeWarningText: "Do not pipe through head or tail." })).toEqual({
+			pipeWarning: false,
+			pipeWarningText: "Do not pipe through head or tail.",
+			pipeWindow: false,
+			readBack: true,
+			readBackText: DEFAULT_READ_BACK_TEXT,
+			windowHint: true,
+			windowHintText: DEFAULT_WINDOW_HINT_TEXT,
+		})
 	})
 
 	it("ignores unknown keys", () => {
 		expect(resolveOptions({ readBack: false, unknown: 1 })).toEqual({
+			pipeWarning: false,
+			pipeWarningText: DEFAULT_PIPE_WARNING_TEXT,
 			pipeWindow: false,
 			readBack: false,
 			readBackText: DEFAULT_READ_BACK_TEXT,
@@ -88,12 +124,17 @@ describe("resolveOptions", () => {
 			expect(resolveOptions({ readBack: null })).toEqual(DEFAULT_OPTIONS)
 			expect(resolveOptions({ pipeWindow: "no" })).toEqual(DEFAULT_OPTIONS)
 			expect(resolveOptions({ pipeWindow: null })).toEqual(DEFAULT_OPTIONS)
+			expect(resolveOptions({ pipeWarning: "no", pipeWarningText: 42 })).toEqual(DEFAULT_OPTIONS)
+			expect(resolveOptions({ pipeWarningText: "   " })).toEqual(DEFAULT_OPTIONS)
+			expect(resolveOptions({ pipeWarning: null })).toEqual(DEFAULT_OPTIONS)
 			expect(resolveOptions({ windowHint: "no", windowHintText: 42 })).toEqual(DEFAULT_OPTIONS)
 			expect(resolveOptions({ windowHintText: "   " })).toEqual(DEFAULT_OPTIONS)
 			expect(resolveOptions({ windowHint: null })).toEqual(DEFAULT_OPTIONS)
 			expect(capture.messages().filter((message) => message.includes("readBack must be a boolean"))).toHaveLength(2)
 			expect(capture.messages().filter((message) => message.includes("readBackText must be"))).toHaveLength(2)
 			expect(capture.messages().filter((message) => message.includes("pipeWindow must be a boolean"))).toHaveLength(2)
+			expect(capture.messages().filter((message) => message.includes("pipeWarning must be a boolean"))).toHaveLength(2)
+			expect(capture.messages().filter((message) => message.includes("pipeWarningText must be"))).toHaveLength(2)
 			expect(capture.messages().filter((message) => message.includes("windowHint must be a boolean"))).toHaveLength(2)
 			expect(capture.messages().filter((message) => message.includes("windowHintText must be"))).toHaveLength(2)
 		} finally {

@@ -5,6 +5,7 @@ import { resolveOptions } from "./options.ts"
 import { injectReadBack, injectWindowHint, type SystemPartLike } from "./prompt.ts"
 import { rewritePipeWindow, type BeforeEventLike } from "./pipe.ts"
 import { DESCRIPTION_MARKER, INPUT_SCHEMA, OUTPUT_WINDOW_DESCRIPTION } from "./schema.ts"
+import { applyPipeWarning } from "./warn.ts"
 
 const SHELL = "shell"
 const READ = "read"
@@ -76,6 +77,12 @@ export default Plugin.define({
 				await applyWindow(event)
 			} catch (error) {
 				console.warn("[command.window] failed to apply the output window", error)
+			}
+			if (!options.pipeWarning) return
+			try {
+				applyPipeWarning(event, options.pipeWarningText)
+			} catch (error) {
+				console.warn("[command.window] failed to append the head/tail warning", error)
 			}
 		})
 	},

@@ -21,13 +21,13 @@ function countAt(token: string | undefined): number | undefined {
 }
 
 /**
- * Offset of the last pipe operator at shell quoting depth 0, skipping `||` and `|&`
- * (those are list operators, not stream pipes). Undefined when the command has none.
+ * Offsets of the pipe operators at shell quoting depth 0, skipping `||` and `|&`
+ * (those are list operators, not stream pipes). Empty when the command has none.
  */
-function lastPipe(command: string): number | undefined {
+function pipeOffsets(command: string): number[] {
 	let single = false
 	let double = false
-	let last: number | undefined
+	const offsets: number[] = []
 	for (let i = 0; i < command.length; i++) {
 		const ch = command[i]
 		if (single) {
@@ -49,9 +49,31 @@ function lastPipe(command: string): number | undefined {
 			command[i + 1] !== "|" &&
 			command[i + 1] !== "&"
 		)
-			last = i
+			offsets.push(i)
 	}
-	return last
+	return offsets
+}
+
+/** Offset of the last stream pipe, or undefined when the command has none. */
+function lastPipe(command: string): number | undefined {
+	const offsets = pipeOffsets(command)
+	return offsets[offsets.length - 1]
+}
+
+/** Whether the pipeline command right after a pipe is `head` or `tail` itself. */
+function isHeadTailSegment(segment: string): boolean {
+	return /^(?:head|tail)(?=$|[\s;&|<>()])/.test(segment.trimStart())
+}
+
+/**
+ * Whether the command pipes output through `head` or `tail` anywhere at quoting
+ * depth 0, joined commands included. Quoted pipes, `||`, and `|&` do not count.
+ * This is broader than the rewrite on purpose: it only drives an advisory warning,
+ * so it also reports forms the rewriter must refuse (`| head -c 100`, a bare
+ * `| head`, extra arguments).
+ */
+export function pipesThroughHeadTail(command: string): boolean {
+	return pipeOffsets(command).some((offset) => isHeadTailSegment(command.slice(offset + 1)))
 }
 
 /**

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest"
 import plugin from "./index.ts"
 import { DEFAULT_READ_BACK_TEXT, DEFAULT_WINDOW_HINT_TEXT, type SystemPartLike } from "./prompt.ts"
 import { INPUT_SCHEMA, OUTPUT_WINDOW_DESCRIPTION } from "./schema.ts"
+import { DEFAULT_PIPE_WARNING_TEXT } from "./warn.ts"
 
 type SetupContext = Parameters<typeof plugin.setup>[0]
 type ToolEditor = Parameters<Parameters<SetupContext["tool"]["transform"]>[0]>[0]
@@ -199,6 +200,60 @@ describe("plugin setup", () => {
 		}
 		await fake.runAfter(event)
 		expect((event.result.output as { output: string }).output).toContain("(tail 2)")
+	})
+
+	it("does not warn about head/tail pipes by default", async () => {
+		const fake = fakeContext()
+		await plugin.setup(fake.context)
+		const event = {
+			tool: "shell",
+			status: "completed",
+			input: { command: "seq 1 3 | tail -n 1" },
+			result: {
+				output: { output: "3" },
+				content: [{ type: "text", text: "3" }],
+				metadata: { status: "completed" },
+			},
+		}
+		await fake.runAfter(event)
+		expect(event.result.content).toEqual([{ type: "text", text: "3" }])
+	})
+
+	it("warns about head/tail pipes when pipeWarning is enabled", async () => {
+		const fake = fakeContext(undefined, { pipeWarning: true })
+		await plugin.setup(fake.context)
+		const event = {
+			tool: "shell",
+			status: "completed",
+			input: { command: "seq 1 3 | tail -n 1" },
+			result: {
+				output: { output: "3" },
+				content: [{ type: "text", text: "3" }],
+				metadata: { status: "completed" },
+			},
+		}
+		await fake.runAfter(event)
+		expect(event.result.content).toEqual([
+			{ type: "text", text: `[window warning: ${DEFAULT_PIPE_WARNING_TEXT}]` },
+			{ type: "text", text: "3" },
+		])
+	})
+
+	it("warns with a custom pipe warning text", async () => {
+		const fake = fakeContext(undefined, { pipeWarning: true, pipeWarningText: "Use window parameters." })
+		await plugin.setup(fake.context)
+		const event = {
+			tool: "shell",
+			status: "completed",
+			input: { command: "seq 1 3 | head -n 1" },
+			result: {
+				output: { output: "1" },
+				content: [{ type: "text", text: "1" }],
+				metadata: { status: "completed" },
+			},
+		}
+		await fake.runAfter(event)
+		expect(event.result.content[0]).toEqual({ type: "text", text: "[window warning: Use window parameters.]" })
 	})
 
 	it("never rejects from the execute.after hook", async () => {

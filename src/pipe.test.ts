@@ -51,6 +51,36 @@ describe("parsePipeWindow", () => {
 		expect(parsePipeWindow("false |& tail -n 3")).toEqual({ ok: false })
 	})
 
+	it("leaves commands that join other commands alone", () => {
+		// the pipe only sees the last pipeline, the window would cover all of them
+		expect(parsePipeWindow("seq 1 100 && echo done | tail -n 3")).toEqual({ ok: false })
+		expect(parsePipeWindow("cd /tmp && seq 1 100 | tail -n 3")).toEqual({ ok: false })
+		expect(parsePipeWindow("false || seq 1 100 | tail -n 3")).toEqual({ ok: false })
+		expect(parsePipeWindow("cd /tmp; seq 1 100 | tail -n 3")).toEqual({ ok: false })
+		expect(parsePipeWindow("seq 1 100 | tail -n 3; echo done")).toEqual({ ok: false })
+		expect(parsePipeWindow("seq 1 100 | tail -n 3;")).toEqual({ ok: true, command: "seq 1 100", tail: 3 })
+		expect(parsePipeWindow("sleep 1 & seq 1 100 | tail -n 3")).toEqual({ ok: false })
+		expect(parsePipeWindow("seq 1 100\n| tail -n 3")).toEqual({ ok: false })
+		expect(parsePipeWindow("cd /tmp\nseq 1 100 | tail -n 3")).toEqual({ ok: false })
+		expect(parsePipeWindow("seq 1 100 \\\n | tail -n 3")).toEqual({ ok: false })
+		// joins inside quotes are part of an argument, not the command
+		expect(parsePipeWindow(`echo "a && b; c" | tail -n 3`)).toEqual({
+			ok: true,
+			command: `echo "a && b; c"`,
+			tail: 3,
+		})
+	})
+
+	it("allows redirections and line breaks that do not join commands", () => {
+		expect(parsePipeWindow("seq 1 100 2>&1 | tail -n 3")).toEqual({
+			ok: true,
+			command: "seq 1 100 2>&1",
+			tail: 3,
+		})
+		expect(parsePipeWindow("seq 1 100 |\n tail -n 3")).toEqual({ ok: true, command: "seq 1 100", tail: 3 })
+		expect(parsePipeWindow("echo a\\\\ | tail -n 1")).toEqual({ ok: true, command: "echo a\\\\", tail: 1 })
+	})
+
 	it("leaves head-then-tail chains alone", () => {
 		expect(parsePipeWindow("seq 1 100 | head -n 20 | tail -n 5")).toEqual({ ok: false })
 		expect(parsePipeWindow("seq 1 100 | tail -n 5 | head -n 2")).toEqual({ ok: false })

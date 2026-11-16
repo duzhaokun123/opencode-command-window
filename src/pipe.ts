@@ -55,6 +55,44 @@ function lastPipe(command: string): number | undefined {
 }
 
 /**
+ * Whether the command joins another command to itself at shell quoting depth 0. A trailing
+ * `| head`/`| tail` only sees the last pipeline of such a command (`a && b | tail -n 3`
+ * tails `b`, not `a`), while the window parameters would cover the output of every part, so
+ * commands with a join are left alone. `&&`, `||`, `;`, `&`, and a newline are joins;
+ * `>&` (descriptor duplication such as `2>&1`) and a newline right after `|` (a line break
+ * inside the pipeline) are not.
+ */
+function hasJoin(command: string): boolean {
+	let single = false
+	let double = false
+	for (let i = 0; i < command.length; i++) {
+		const ch = command[i]
+		if (single) {
+			if (ch === "'") single = false
+			continue
+		}
+		if (double) {
+			if (ch === "\\") i++
+			else if (ch === '"') double = false
+			continue
+		}
+		if (ch === "\\") i++
+		else if (ch === "'") single = true
+		else if (ch === '"') double = true
+		else if (ch === "&") {
+			if (command[i - 1] !== ">") return true
+		} else if (ch === ";") return true
+		else if (ch === "|" && command[i + 1] === "|") return true
+		else if (ch === "\n") {
+			let j = i - 1
+			while (j >= 0 && (command[j] === " " || command[j] === "\t")) j--
+			if (command[j] !== "|") return true
+		}
+	}
+	return false
+}
+
+/**
  * Parse one `head`/`tail` invocation into a line count. Anything the plugin does not
  * fully understand — other flags (`-c`, `-v`, …), extra arguments, quoting or command
  * substitution, a missing or zero count, a negative offset like `-n +5` — returns
@@ -96,17 +134,20 @@ function parseSegment(segment: string): { head?: number; tail?: number } | undef
 }
 
 /**
- * Parse a trailing `| head`/`| tail` pipe off the end of one command. Only one segment
- * is stripped, and only when what remains does not itself end in another `head`/`tail`
- * pipe: `cmd | head -N | tail -M` selects a middle range, which the head+tail window
- * parameters cannot express, so chains are left untouched.
+ * Parse a trailing `| head`/`| tail` pipe off the end of one single command. Commands that
+ * join other commands are left alone, as is a command whose remaining text would end in a
+ * dangling backslash. Only one segment is stripped, and only when what remains does not
+ * itself end in another `head`/`tail` pipe: `cmd | head -N | tail -M` selects a middle
+ * range, which the head+tail window parameters cannot express, so chains are left untouched.
  */
 export function parsePipeWindow(command: string): ParsedPipe {
 	let text = command.trimEnd()
 	if (text.endsWith(";")) text = text.slice(0, -1).trimEnd()
+	if (hasJoin(text)) return { ok: false }
 	const pipe = lastPipe(text)
 	if (pipe === undefined) return { ok: false }
 	const left = text.slice(0, pipe).trim()
+	if ((left.length - left.replace(/\\+$/, "").length) % 2 === 1) return { ok: false }
 	const parsed = parseSegment(text.slice(pipe + 1))
 	if (parsed === undefined) return { ok: false }
 	const leftPipe = lastPipe(left)

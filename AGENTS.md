@@ -69,6 +69,11 @@ src/pipe.ts     命令结尾 | head / | tail 管道的解析与改写（纯函�
   - 日志里能看到 `msg="loading plugin" id=@o0kam1/opencode-command-window@0.2.0`，无 `[command.window]` 警告。
 - 真机验证前必须隔离全局插件：OpenCode 按插件 id 去重，保留先加载的实例。若全局配置里已有指向本仓库的目录条目（id 同为 `command.window`），项目里声明的 npm 条目仍会加载（日志出现两条 `loading plugin`），但生效的是先前那个实例，其 `options` 不生效，表现为照旧注入内置文本。用独立的 `XDG_CONFIG_HOME`（里面放一份去掉本仓库条目的全局配置副本）即可隔离；`OPENCODE_CONFIG` 环境变量在本版本不生效。
 - 观察系统提示词的可靠方法：临时项目里放一个 `.opencode/plugins/` 观察者插件，在 `ctx.session.hook("context")` 里把 `event.system` 延迟一个 tick（`setTimeout(…, 0)`）再快照。各插件按注册顺序执行钩子，先注册的钩子只能看到注入前的 part。
+- 2026-11-16 在真实 OpenCode v2.3.0 会话中核实 `pipeWindow`（临时项目 `/var/tmp/opencode/verify-cw-pipe-on` 与 `-off`，用 `/var/tmp/opencode/cw-pipe-xdg` 的无本仓库条目全局配置副本隔离，`opencode run --standalone --auto -m local2/deepseek-flash`，提示词要求 command 逐字带管道并禁止窗口参数）：
+  - `pipeWindow: true`：`seq 1 100 | tail -n 3` → 正文 98–100 行加 `[showing lines 98-100 of 100 (tail 3); full output was not saved because the result was not truncated]`（总数 100 证明命令被改写为全量执行）；`seq 1 100 | head -n 5` → `[showing lines 1-5 of 100 (head 5); …]`；`seq 1 100 | head -n 20 | tail -n 5` → 输出 16–20 且无 marker（head→tail 链保持原样）。
+  - 默认（无 `options`）：同一 `seq 1 100 | tail -n 3` → 只有 98/99/100 三行，无 marker，命令未被改写。
+  - 日志出现 `msg="loading plugin" id=/home/o0kam1/…/opencode-command-window`（从 `src/index.ts` 加载），无 `[command.window]` 警告；仅有与插件无关的 opencode.ai console 401 WARN（不带插件的运行同样出现）。
+  - 注意：`opencode run` 默认连到常驻的 `opencode serve --service` 后台进程（用的是启动它的那份配置）；验证必须加 `--standalone`，隔离用的 `XDG_CONFIG_HOME` 才会作用于本次运行。
 
 ## 提交前自检
 
